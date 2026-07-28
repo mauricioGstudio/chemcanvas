@@ -157,7 +157,9 @@
   .dl .meta { display: flex; justify-content: center; gap: 14px; margin: 22px 0 34px; flex-wrap: wrap; color: var(--ink-faint); font-size: 14.5px; }
   .dl .meta span:not(:last-child)::after { content: '·'; margin-left: 14px; }
   .btn.big { font-size: 17px; padding: 17px 34px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 999px; padding: 4px 12px; margin-bottom: 16px; }
   .fineprint { max-width: 540px; margin: 32px auto 0; font-size: 14px; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 22px; line-height: 1.65; }
+  .fineprint.alt { margin-top: 12px; border-top: 0; padding-top: 0; }
 
   /* developer */
   .dev { max-width: 640px; }
@@ -476,8 +478,10 @@
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
     <div class="meta"><span>Version 1.0.0</span><span>Windows 10 and 11, 64-bit</span><span>98 MB</span><span>Free</span></div>
+    <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/vyrmg/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
+    <p class="fineprint alt"><a href="https://chemcanvas.vercel.app" target="_blank" rel="noopener" style="color: var(--accent); border-bottom: 1px solid var(--accent)">Web-based version</a></p>
   </div>
 </section>
 
