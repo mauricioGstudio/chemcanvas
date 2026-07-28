@@ -1,0 +1,96 @@
+/* ChemCanvas design tokens — dark mode is the default. */
+:root {
+  --bg-base: #0f1117;
+  --bg-panel: #171a23;
+  --bg-toolbar: #12141c;
+  --bg-hover: #1e2230;
+  --bg-active: #232838;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --accent: #5b8af0;
+  --accent-hover: #6e98f2;
+  --accent-subtle: rgba(91, 138, 240, 0.15);
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --canvas: #1a1d28;
+  --grid-dot: rgba(255, 255, 255, 0.06);
+  --text-primary: #e6e8ee;
+  --text-secondary: #9aa1b2;
+  --text-muted: #6b7280;
+
+  /* Structure rendering (bonds/labels on canvas) */
+  --stroke-mol: #e6e8ee;
+
+  /* Spacing scale */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Radius */
+  --r-panel: 10px;
+  --r-btn: 6px;
+  --r-chip: 4px;
+
+  /* Motion */
+  --t-fast: 150ms ease;
+  --t-panel: 200ms ease;
+
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+}
+
+.light {
+  --bg-base: #f7f8fa;
+  --bg-panel: #ffffff;
+  --bg-toolbar: #ffffff;
+  --bg-hover: #eef0f4;
+  --bg-active: #e4e8f0;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --accent: #3b6fe0;
+  --accent-hover: #2f5fc9;
+  --accent-subtle: rgba(59, 111, 224, 0.12);
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  --canvas: #ffffff;
+  --grid-dot: rgba(0, 0, 0, 0.08);
+  --text-primary: #1a1d26;
+  --text-secondary: #5b6270;
+  --text-muted: #9aa1b2;
+  --stroke-mol: #1a1d26;
+}
+
+/* High-contrast overlay (toggled from View) */
+.high-contrast {
+  --border: rgba(255, 255, 255, 0.25);
+  --border-strong: rgba(255, 255, 255, 0.45);
+  --text-secondary: #c8cdd8;
+  --text-muted: #9aa1b2;
+  --grid-dot: rgba(255, 255, 255, 0.18);
+}
+.light.high-contrast {
+  --border: rgba(0, 0, 0, 0.35);
+  --border-strong: rgba(0, 0, 0, 0.55);
+  --text-secondary: #333945;
+  --text-muted: #5b6270;
+  --grid-dot: rgba(0, 0, 0, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t-panel: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

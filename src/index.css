@@ -1,0 +1,89 @@
+@import 'tailwindcss';
+@import './design/tokens.css';
+
+@theme inline {
+  --color-base: var(--bg-base);
+  --color-panel: var(--bg-panel);
+  --color-toolbar: var(--bg-toolbar);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-edge: var(--border);
+  --color-edge-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--error);
+  --color-canvas: var(--canvas);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --font-ui: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible focus ring on every interactive element — non-negotiable. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--r-btn);
+}
+
+::selection {
+  background: var(--accent-subtle);
+}
+
+/* Slim scrollbars that match the theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Print: white background, black structures, no chrome (§5.8) */
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-canvas {
+    background: #fff !important;
+  }
+  .print-canvas svg .mol-stroke {
+    stroke: #000 !important;
+  }
+  .print-canvas svg .mol-stroke-fill {
+    fill: #000 !important;
+  }
+  .print-canvas svg text {
+    fill: #000 !important;
+  }
+  .grid-rect {
+    display: none !important;
+  }
+}
