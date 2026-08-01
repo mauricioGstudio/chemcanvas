@@ -232,6 +232,7 @@
   <a class="wordmark" href="#top"><img src="./assets/icon.png" alt="">ChemCanvas</a>
   <div class="nav-links">
     <a href="#features">Features</a>
+    <a href="#ar">AR</a>
     <a href="#more">In the box</a>
     <a href="#download">Download</a>
     <a href="#changelog">Changelog</a>
@@ -392,7 +393,7 @@
     <span class="line"><span>editing. <em class="accent">Free.</em></span></span>
     <span class="line"><span>Always.</span></span>
   </h1>
-  <p class="hero-sub">ChemCanvas turns "caffeine" into an editable structure the moment you press Enter. Bonds snap to real geometry, formulas update while you draw, and every drawing stays on your computer.</p>
+  <p class="hero-sub">ChemCanvas turns "caffeine" into an editable structure the moment you press Enter. Bonds snap to real geometry, formulas update while you draw, and <a href="#ar" style="color: var(--accent); border-bottom: 1px solid var(--accent)">any molecule can be lifted off the page into 3D</a> and held in your hand.</p>
   <div class="hero-cta">
     <a class="btn" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download for Windows</a>
     <span class="cta-note">98 MB &middot; no account &middot; Windows 10 and 11</span>
@@ -467,6 +468,64 @@
   </div>
 </section>
 
+<section id="ar">
+  <div class="split">
+    <div class="txt reveal">
+      <p class="label">New in 2.0</p>
+      <h2>Hold the molecule in your hand</h2>
+      <p>Select any structure and press <b>View in AR</b>. ChemCanvas works out its 3D shape, opens your camera, and stands the molecule up in the room in front of you — spheres for atoms, real depth, real geometry.</p>
+      <p>Then use your hands. Open your palm and the molecule settles above it. Pinch and move to turn it over. Pinch with both hands and pull them apart to make it bigger. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
+      <p class="note">Ball-and-stick, space-filling, or wireframe · save a photo of what you see · works with a mouse too if you'd rather drag</p>
+    </div>
+    <div class="reveal d1">
+      <div class="frame" style="background: var(--frame-bg)">
+        <div class="frame-bar"><i></i><i></i><i></i></div>
+        <svg viewBox="0 0 420 300" style="width:100%; display:block; background:#12141b">
+          <defs>
+            <radialGradient id="cAtom" cx="35%" cy="32%">
+              <stop offset="0" stop-color="#8a8f99"/><stop offset="55%" stop-color="#3c4043"/><stop offset="1" stop-color="#1f2124"/>
+            </radialGradient>
+            <radialGradient id="nAtom" cx="35%" cy="32%">
+              <stop offset="0" stop-color="#93a9ff"/><stop offset="55%" stop-color="#3050f8"/><stop offset="1" stop-color="#1a2c8a"/>
+            </radialGradient>
+            <radialGradient id="oAtom" cx="35%" cy="32%">
+              <stop offset="0" stop-color="#ff8a7a"/><stop offset="55%" stop-color="#ff2010"/><stop offset="1" stop-color="#8f1109"/>
+            </radialGradient>
+            <radialGradient id="hAtom" cx="35%" cy="32%">
+              <stop offset="0" stop-color="#ffffff"/><stop offset="60%" stop-color="#d8dae0"/><stop offset="1" stop-color="#8f939c"/>
+            </radialGradient>
+          </defs>
+          <!-- hand silhouette, suggesting the molecule resting above a palm -->
+          <path d="M150 300 L150 236 Q150 224 160 224 Q170 224 170 236 L170 210 Q170 198 180 198 Q190 198 190 210 L190 204 Q190 192 200 192 Q210 192 210 204 L210 214 Q210 202 220 202 Q230 202 230 214 L230 262 Q230 300 196 300 Z"
+                fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+          <!-- bonds -->
+          <g stroke-linecap="round">
+            <line x1="150" y1="150" x2="205" y2="120" stroke="#3c4043" stroke-width="7"/>
+            <line x1="205" y1="120" x2="258" y2="150" stroke="#3050f8" stroke-width="7"/>
+            <line x1="258" y1="150" x2="258" y2="96" stroke="#ff2010" stroke-width="7"/>
+            <line x1="150" y1="150" x2="150" y2="106" stroke="#d8dae0" stroke-width="5"/>
+            <line x1="205" y1="120" x2="205" y2="72" stroke="#d8dae0" stroke-width="5"/>
+          </g>
+          <!-- atoms, drawn back-to-front -->
+          <circle cx="150" cy="106" r="10" fill="url(#hAtom)"/>
+          <circle cx="205" cy="72" r="10" fill="url(#hAtom)"/>
+          <circle cx="258" cy="96" r="19" fill="url(#oAtom)"/>
+          <circle cx="150" cy="150" r="21" fill="url(#cAtom)"/>
+          <circle cx="205" cy="120" r="20" fill="url(#nAtom)"/>
+          <circle cx="258" cy="150" r="20" fill="url(#nAtom)"/>
+          <text x="205" y="126" text-anchor="middle" font-family="Figtree" font-size="15" font-weight="700" fill="#fff">N</text>
+          <text x="258" y="102" text-anchor="middle" font-family="Figtree" font-size="14" font-weight="700" fill="#fff">O</text>
+          <!-- pinch indicator -->
+          <circle cx="300" cy="215" r="26" fill="none" stroke="rgba(90,220,140,0.85)" stroke-width="2"/>
+          <text x="300" y="220" text-anchor="middle" font-family="Figtree" font-size="12" font-weight="600" fill="rgba(90,220,140,0.95)">pinch</text>
+          <text x="24" y="34" font-family="Figtree" font-size="13" font-weight="600" fill="rgba(255,255,255,0.85)">Caffeine · 24 atoms</text>
+          <text x="24" y="54" font-family="Figtree" font-size="11.5" fill="rgba(255,255,255,0.5)">Pinch to rotate · two hands to resize</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
 <div class="band">
   <h2 class="reveal">Reactions, stereochemistry, templates, and a history you can scrub through. It works offline, and it prints in clean black on white.</h2>
 </div>
@@ -478,6 +537,7 @@
       <h2>What's included in the free software.</h2>
     </div>
     <div class="rows reveal d1">
+      <div class="row"><h3>AR viewer</h3><p>See any structure in 3D over your camera and move it with your hands. Ball-and-stick, space-filling, or wireframe, with a photo button for slides and posters.</p></div>
       <div class="row"><h3>Reaction arrows</h3><p>Forward, equilibrium, retrosynthetic, resonance, and curly electron-pushing arrows, with conditions text above and below. One command lines up reactants, arrow, and products.</p></div>
       <div class="row"><h3>Stereochemistry</h3><p>Wedge, dash, and wavy bonds. R/S and E/Z labels appear on their own and follow every edit. A Newman projection is one right-click away.</p></div>
       <div class="row"><h3>Templates</h3><p>Rings, functional groups, all twenty amino acids, nucleotide bases, and common drug scaffolds. Save your own fragments and reuse them later.</p></div>
@@ -492,7 +552,7 @@
   <div class="dl reveal">
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 1.0.0</span><span>Windows 10 and 11, 64-bit</span><span>98 MB</span><span>Free</span></div>
+    <div class="meta"><span>Version 2.0.0</span><span>Windows 10 and 11, 64-bit</span><span>118 MB</span><span>Free</span></div>
     <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
@@ -508,9 +568,58 @@
   <div class="versions">
     <div class="version reveal">
       <div class="version-head">
+        <span class="version-tag">v2.0.0</span>
+        <span class="version-date">August 1, 2026</span>
+        <span class="badge">Latest</span>
+      </div>
+      <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
+
+      <div class="version-groups">
+        <div>
+          <h4>AR viewer</h4>
+          <ul>
+            <li>Select a structure and press <b>View in AR</b> to see it in 3D over your camera</li>
+            <li>Ball-and-stick, space-filling, and wireframe modes</li>
+            <li>Save a photo of the AR scene</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Hand control</h4>
+          <ul>
+            <li>Open palm places the molecule above your hand</li>
+            <li>Pinch and move to rotate</li>
+            <li>Two pinched hands to resize</li>
+            <li>On-screen skeleton shows what the camera is tracking</li>
+          </ul>
+        </div>
+        <div>
+          <h4>3D geometry</h4>
+          <ul>
+            <li>Structures get real 3D shapes built from VSEPR angles and covalent bond lengths</li>
+            <li>Ring templates for aromatics and chair cyclohexanes, then a relaxation pass</li>
+            <li>Hydrogens placed at open coordination sites</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Privacy</h4>
+          <ul>
+            <li>Hand tracking runs on your device; the model ships with the app, not from a CDN</li>
+            <li>Camera frames are never recorded or transmitted</li>
+            <li>Works without a camera — drag to rotate instead</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-links">
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.0.0/ChemCanvas-Setup.exe" download>Download v2.0.0</a>
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+      </div>
+    </div>
+
+    <div class="version reveal">
+      <div class="version-head">
         <span class="version-tag">v1.0.0</span>
         <span class="version-date">July 28, 2026</span>
-        <span class="badge">Latest</span>
       </div>
       <p class="version-note">Initial release.</p>
 
@@ -613,6 +722,7 @@
       <li>Contains no telemetry, no crash reporting, no usage statistics, no update pinging, and no account system.</li>
       <li>Makes exactly one kind of network request: when you type a chemical name into search, the text of that query is sent over HTTPS to PubChem (run by the U.S. National Institutes of Health) or OPSIN (University of Cambridge) to resolve it into a structure. Like any web request, those services can see your IP address; their own policies govern what they do with requests they receive. If you never use name lookup, the app makes no network requests at all and works fully offline.</li>
       <li>Discards any cookies those lookup services attempt to set. Nothing persists between requests.</li>
+      <li>The AR viewer asks for your camera only when you open it, and stops the camera the moment you leave. Frames are read for hand tracking and discarded immediately — never recorded, never uploaded. The hand-tracking model ships inside the app rather than loading from anyone's server, so using AR contacts no one at all.</li>
     </ul>
 
     <h3>Changes</h3>

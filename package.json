@@ -1,7 +1,7 @@
 {
   "name": "chemcanvas",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Draw, search, and export chemical structures.",
   "author": "Mauricio",
   "type": "module",
@@ -43,6 +43,7 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@mediapipe/tasks-vision": "^1.0.1",
     "@rdkit/rdkit": "^2025.3.4-1.0.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.24.0",

@@ -97,5 +97,10 @@ app.whenReady().then(async () => {
   await sleep(500)
   await capture(win, 'shot-inspector.png')
 
+  // Note: the AR viewer is deliberately not captured here. It requests a
+  // camera, and on a build machine without one the capture pipeline stalls
+  // waiting on the device. Shoot that screen by hand on a machine with a
+  // webcam if a product shot is needed.
+
   app.quit()
 })

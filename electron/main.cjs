@@ -64,6 +64,14 @@ app.whenReady().then(() => {
     callback({ responseHeaders: headers })
   })
 
+  // Camera is needed only for the AR viewer. Grant video, deny everything
+  // else — the app has no reason to ask for a microphone, location, or
+  // notifications, and silently refusing them keeps the privacy promise.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'media')
+  })
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media')
+
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -16,6 +16,7 @@ import {
 } from '../state/docActions'
 import { useEditorStore } from '../state/editor'
 import { identifySelection } from '../state/identify'
+import { openAR } from '../state/ar'
 import { useUIStore } from '../state/store'
 import { ABBREVIATIONS } from '../model/abbreviations'
 import {
@@ -187,6 +188,17 @@ export default function ContextMenu() {
           }}
         />
         <Divider />
+        <Item
+          label="View in AR…"
+          onClick={() => {
+            if (found)
+              editor.select({
+                atomIds: found.mol.atoms.map((a) => a.id),
+                bondIds: found.mol.bonds.map((b) => b.id),
+              })
+            openAR()
+          }}
+        />
         <Item
           label="Name this structure…"
           onClick={() => {

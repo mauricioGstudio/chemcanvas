@@ -11,6 +11,7 @@ import BottomBar from './ui/BottomBar'
 import CommandPalette from './ui/CommandPalette'
 import ContextMenu from './ui/ContextMenu'
 import ProjectionView from './ui/ProjectionView'
+import ARView from './ar/ARView'
 import NameDialog from './ui/NameDialog'
 import HistoryPanel from './ui/HistoryPanel'
 import Onboarding from './ui/Onboarding'
@@ -46,6 +47,7 @@ export default function App() {
       <ContextMenu />
       <ProjectionView />
       <NameDialog />
+      <ARView />
       <HistoryPanel />
       <Onboarding />
       <Toasts />

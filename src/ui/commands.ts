@@ -3,6 +3,7 @@ import { placeStructureFromSmiles } from '../state/actions'
 import { redo, undo, useDocStore } from '../state/doc'
 import { copyAsImage, exportPDF, exportPNG, exportSVG } from '../chem/export'
 import { identifySelection } from '../state/identify'
+import { openAR } from '../state/ar'
 import { autoLayoutReaction, bracketSelection, cleanUpMolecules } from '../state/docActions'
 import { useEditorStore } from '../state/editor'
 import { useUIStore } from '../state/store'
@@ -99,6 +100,12 @@ const registry: Command[] = [
       const n = cleanUpMolecules()
       if (n > 0) toast(`Cleaned up ${n} structure${n > 1 ? 's' : ''}.`, 'success')
     },
+  },
+  {
+    id: 'view-ar',
+    title: 'View in AR',
+    keywords: 'ar augmented reality 3d camera hand gesture view molecule model',
+    run: () => openAR(),
   },
   {
     id: 'name-structure',
