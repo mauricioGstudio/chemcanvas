@@ -161,32 +161,54 @@
   .fineprint { max-width: 540px; margin: 32px auto 0; font-size: 14px; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 22px; line-height: 1.65; }
   .fineprint.alt { margin-top: 12px; border-top: 0; padding-top: 0; }
 
-  /* changelog */
+  /* changelog — three tiers of disclosure: major > minor > release */
   .changelog-intro { color: var(--ink-soft); margin-top: 22px; max-width: 560px; }
-  .versions { margin-top: 44px; display: flex; flex-direction: column; gap: 24px; }
-  .version { border: 1px solid var(--line); border-radius: 14px; padding: 30px 32px; background: var(--card); }
-  .version-head {
+  .versions { margin-top: 44px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* shared summary-row behaviour for all three tiers */
+  .major-head, .minor-head, .version-head {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    cursor: pointer; user-select: none; list-style: none; margin: -6px; padding: 6px;
+    cursor: pointer; user-select: none; list-style: none;
   }
+  .major-head::-webkit-details-marker,
+  .minor-head::-webkit-details-marker,
   .version-head::-webkit-details-marker { display: none; }
-  .version-tag { font-weight: 800; font-size: 21px; letter-spacing: -0.01em; }
-  .version-date { font-size: 14px; color: var(--ink-faint); }
-  .version-chev {
+  .major-head:focus-visible, .minor-head:focus-visible, .version-head:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px;
+  }
+  .tier-meta { font-size: 13.5px; color: var(--ink-faint); }
+  .chev {
     margin-left: auto; width: 20px; height: 20px; flex-shrink: 0; color: var(--ink-faint);
     transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  .version[open] .version-chev { transform: rotate(180deg); }
-  .version-head:hover .version-chev { color: var(--ink); }
-  .version-note { color: var(--ink-soft); margin-top: 8px; font-size: 15px; }
-  .version-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 22px 28px; margin-top: 26px; }
+  /* `> summary` keeps a parent's open state off its children's chevrons */
+  details[open] > summary .chev { transform: rotate(180deg); }
+  .major-head:hover .chev, .minor-head:hover .chev, .version-head:hover .chev { color: var(--ink); }
+
+  /* tier 1 — major line (v2) */
+  .major { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 26px 30px; }
+  .major:not([open]) { padding-bottom: 24px; }
+  .major-tag { font-weight: 800; font-size: 25px; letter-spacing: -0.02em; }
+
+  /* tier 2 — minor line (v2.3) */
+  .minors { margin-top: 20px; display: flex; flex-direction: column; }
+  .minor { border-top: 1px solid var(--line-soft); padding: 15px 0; }
+  .minor:first-child { border-top: 0; padding-top: 4px; }
+  .minor:last-child { padding-bottom: 0; }
+  .minor-tag { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+
+  /* tier 3 — the release itself (v2.3.0) */
+  .patches { margin: 14px 0 4px; padding-left: 18px; border-left: 2px solid var(--line-soft); display: flex; flex-direction: column; gap: 12px; }
+  .version { border: 1px solid var(--line); border-radius: 11px; background: var(--paper); padding: 18px 22px; }
+  .version:not([open]) { padding-bottom: 16px; }
+  .version-tag { font-weight: 700; font-size: 16.5px; letter-spacing: -0.01em; }
+  .version-date { font-size: 13.5px; color: var(--ink-faint); }
+  .version-note { color: var(--ink-soft); margin-top: 10px; font-size: 15px; }
+  .version-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 22px 28px; margin-top: 22px; }
   .version-groups h4 { font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em; margin-bottom: 8px; }
   .version-groups ul { list-style: none; }
   .version-groups li { font-size: 14px; color: var(--ink-soft); padding: 3px 0; }
-  .version-links { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
-
-  /* collapsed <details> already hides everything but <summary>; just trim the padding */
-  .version:not([open]) { padding-bottom: 24px; }
+  .version-links { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 20px; }
 
   /* developer */
   .dev { max-width: 640px; }
@@ -235,6 +257,9 @@
     .split.rev > .txt { order: 0; }
     .index-head { position: static; }
     .row { grid-template-columns: 1fr; gap: 8px; }
+    .major { padding: 22px 20px; }
+    .patches { padding-left: 12px; }
+    .version { padding: 16px 17px; }
   }
 </style>
 </head>
@@ -539,296 +564,371 @@
   <h2>Version history</h2>
   <p class="changelog-intro reveal">Every release gets its own entry here, with its own download link that keeps working after newer versions ship — so you can always go back to an older one.</p>
 
-  <div class="versions">
-    <details class="version reveal" open>
-      <summary class="version-head">
-        <span class="version-tag">v2.3.0</span>
-        <span class="version-date">August 1, 2026</span>
-        <span class="badge">Latest</span>
-        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <p class="version-note">One molecule at a time, held still while you work on it.</p>
+    <div class="versions">
+      <details class="major reveal" open>
+        <summary class="major-head">
+          <span class="major-tag">v2</span>
+          <span class="tier-meta">5 releases · newest v2.3.0</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
 
-      <div class="version-groups">
-        <div>
-          <h4>Pinch to expand</h4>
-          <ul>
-            <li>Pinching any part of a molecule — atom or bond — now grows it</li>
-            <li>It expands where it stands; nothing is re-centred or moved</li>
-            <li>Everything else fades back and stops responding to your hands</li>
-            <li>Pinch clear of it to let it go and return to the full canvas</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Turning it</h4>
-          <ul>
-            <li>Rotation now takes a deliberate pinch on one of its atoms</li>
-            <li>It turns on its own axis and holds its position on screen</li>
-            <li>Pinching the gaps between its atoms no longer drops the focus</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Fixes</h4>
-          <ul>
-            <li>A focused molecule no longer drifts when your hand moves nearer or further from the camera — hand distance now moves the camera instead, and only when nothing is focused</li>
-            <li>Dragging off the molecule no longer swings the whole scene, which used to slide the focused structure across the screen</li>
-            <li>Escape and Reset clear the dimming immediately rather than on the next frame</li>
-          </ul>
-        </div>
-      </div>
+        <div class="minors">
+          <details class="minor" open>
+            <summary class="minor-head">
+              <span class="minor-tag">v2.3</span>
+              <span class="tier-meta">1 release</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="patches">
 
-      <div class="version-links">
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.0/ChemCanvas-Setup.exe" download>Download v2.3.0</a>
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
-      </div>
-    </details>
+              <details class="version" open>
+                <summary class="version-head">
+                  <span class="version-tag">v2.3.0</span>
+                  <span class="version-date">August 1, 2026</span>
+                  <span class="badge">Latest</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">One molecule at a time, held still while you work on it.</p>
 
-    <details class="version reveal">
-      <summary class="version-head">
-        <span class="version-tag">v2.2.1</span>
-        <span class="version-date">August 1, 2026</span>
-        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <p class="version-note">Publisher identification, so Windows shows whose app this is.</p>
+                <div class="version-groups">
+                  <div>
+                    <h4>Pinch to expand</h4>
+                    <ul>
+                      <li>Pinching any part of a molecule — atom or bond — now grows it</li>
+                      <li>It expands where it stands; nothing is re-centred or moved</li>
+                      <li>Everything else fades back and stops responding to your hands</li>
+                      <li>Pinch clear of it to let it go and return to the full canvas</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Turning it</h4>
+                    <ul>
+                      <li>Rotation now takes a deliberate pinch on one of its atoms</li>
+                      <li>It turns on its own axis and holds its position on screen</li>
+                      <li>Pinching the gaps between its atoms no longer drops the focus</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Fixes</h4>
+                    <ul>
+                      <li>A focused molecule no longer drifts when your hand moves nearer or further from the camera — hand distance now moves the camera instead, and only when nothing is focused</li>
+                      <li>Dragging off the molecule no longer swings the whole scene, which used to slide the focused structure across the screen</li>
+                      <li>Escape and Reset clear the dimming immediately rather than on the next frame</li>
+                    </ul>
+                  </div>
+                </div>
 
-      <div class="version-groups">
-        <div>
-          <h4>Publisher</h4>
-          <ul>
-            <li>The installer, portable build, and Add/Remove Programs entry now list Mauricio Gubert as the publisher</li>
-            <li>Not code-signed yet, so the SmartScreen notice on first launch is unchanged — that needs a paid certificate, which is a separate step</li>
-          </ul>
-        </div>
-      </div>
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.0/ChemCanvas-Setup.exe" download>Download v2.3.0</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
 
-      <div class="version-links">
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.1/ChemCanvas-Setup.exe" download>Download v2.2.1</a>
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.1" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
-      </div>
-    </details>
+            </div>
+          </details>
 
-    <details class="version reveal">
-      <summary class="version-head">
-        <span class="version-tag">v2.2.0</span>
-        <span class="version-date">August 1, 2026</span>
-        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <p class="version-note">The whole canvas goes to AR at once, and you choose what to handle.</p>
+          <details class="minor">
+            <summary class="minor-head">
+              <span class="minor-tag">v2.2</span>
+              <span class="tier-meta">2 releases</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="patches">
 
-      <div class="version-groups">
-        <div>
-          <h4>Whole-canvas AR</h4>
-          <ul>
-            <li>One <b>AR</b> button in the toolbar — no selecting first</li>
-            <li>Every structure comes along, laid out in a row in the order you drew them</li>
-            <li>The camera frames all of them, however many there are</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Pinch to focus</h4>
-          <ul>
-            <li>Molecules no longer follow your hand — pinch one to pick it</li>
-            <li>The focused structure stays lit while the rest fade back</li>
-            <li>Rotate, resize, and depth apply only to the one you picked</li>
-            <li>Pinch another to switch, or press Escape to let go</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Loading bar</h4>
-          <ul>
-            <li>A real progress bar counts structures as their shapes are built</li>
-            <li>The scene appears complete instead of one molecule at a time</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Fixes</h4>
-          <ul>
-            <li>Slow rotation drags no longer deselect the molecule when you let go</li>
-            <li>Measurements stay within one structure, restarting if you pick another</li>
-          </ul>
-        </div>
-      </div>
+              <details class="version">
+                <summary class="version-head">
+                  <span class="version-tag">v2.2.1</span>
+                  <span class="version-date">August 1, 2026</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">Publisher identification, so Windows shows whose app this is.</p>
 
-      <div class="version-links">
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.0/ChemCanvas-Setup.exe" download>Download v2.2.0</a>
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
-      </div>
-    </details>
+                <div class="version-groups">
+                  <div>
+                    <h4>Publisher</h4>
+                    <ul>
+                      <li>The installer, portable build, and Add/Remove Programs entry now list Mauricio Gubert as the publisher</li>
+                      <li>Not code-signed yet, so the SmartScreen notice on first launch is unchanged — that needs a paid certificate, which is a separate step</li>
+                    </ul>
+                  </div>
+                </div>
 
-    <details class="version reveal">
-      <summary class="version-head">
-        <span class="version-tag">v2.1.0</span>
-        <span class="version-date">August 1, 2026</span>
-        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.1/ChemCanvas-Setup.exe" download>Download v2.2.1</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.1" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
 
-      <div class="version-groups">
-        <div>
-          <h4>Genuine 3D rendering</h4>
-          <ul>
-            <li>Rebuilt on WebGL: perspective camera, real lighting, depth buffer</li>
-            <li>Atoms are lit spheres whose highlights move as you turn them</li>
-            <li>Contact shadows, so the molecule sits in the room instead of on top of it</li>
-            <li>Near atoms are genuinely larger than far ones</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Accurate geometry</h4>
-          <ul>
-            <li>Fetches properly embedded 3D coordinates from the NCI structure service</li>
-            <li>Fixes strained bonds in bridged cages — morphine 1.68 Å → 1.54 Å</li>
-            <li>Falls back to on-device geometry offline; toggle it off any time</li>
-          </ul>
-        </div>
-        <div>
-          <h4>AR playground</h4>
-          <ul>
-            <li>Tap an atom to inspect it — element, atomic number, mass, charge</li>
-            <li>Measure mode: two atoms for a bond length, three for an angle</li>
-            <li>Switch between structures without leaving AR</li>
-            <li>Move your hand toward the camera to pull the molecule closer</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Fixes</h4>
-          <ul>
-            <li>Large molecules no longer hang — a 100-carbon chain went from never finishing to about a second</li>
-            <li>Long chains extend properly instead of coiling into a ball</li>
-            <li>Size limit raised from 220 to 600 atoms</li>
-            <li>Carbon labels dropped in favour of heteroatoms only, as skeletal structures are drawn</li>
-          </ul>
-        </div>
-      </div>
+              <details class="version">
+                <summary class="version-head">
+                  <span class="version-tag">v2.2.0</span>
+                  <span class="version-date">August 1, 2026</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">The whole canvas goes to AR at once, and you choose what to handle.</p>
 
-      <div class="version-links">
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.1.0/ChemCanvas-Setup.exe" download>Download v2.1.0</a>
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.1.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
-      </div>
-    </details>
+                <div class="version-groups">
+                  <div>
+                    <h4>Whole-canvas AR</h4>
+                    <ul>
+                      <li>One <b>AR</b> button in the toolbar — no selecting first</li>
+                      <li>Every structure comes along, laid out in a row in the order you drew them</li>
+                      <li>The camera frames all of them, however many there are</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Pinch to focus</h4>
+                    <ul>
+                      <li>Molecules no longer follow your hand — pinch one to pick it</li>
+                      <li>The focused structure stays lit while the rest fade back</li>
+                      <li>Rotate, resize, and depth apply only to the one you picked</li>
+                      <li>Pinch another to switch, or press Escape to let go</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Loading bar</h4>
+                    <ul>
+                      <li>A real progress bar counts structures as their shapes are built</li>
+                      <li>The scene appears complete instead of one molecule at a time</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Fixes</h4>
+                    <ul>
+                      <li>Slow rotation drags no longer deselect the molecule when you let go</li>
+                      <li>Measurements stay within one structure, restarting if you pick another</li>
+                    </ul>
+                  </div>
+                </div>
 
-    <details class="version reveal">
-      <summary class="version-head">
-        <span class="version-tag">v2.0.0</span>
-        <span class="version-date">August 1, 2026</span>
-        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.0/ChemCanvas-Setup.exe" download>Download v2.2.0</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
 
-      <div class="version-groups">
-        <div>
-          <h4>AR viewer</h4>
-          <ul>
-            <li>Select a structure and press <b>View in AR</b> to see it in 3D over your camera</li>
-            <li>Ball-and-stick, space-filling, and wireframe modes</li>
-            <li>Save a photo of the AR scene</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Hand control</h4>
-          <ul>
-            <li>Open palm places the molecule above your hand</li>
-            <li>Pinch and move to rotate</li>
-            <li>Two pinched hands to resize</li>
-            <li>On-screen skeleton shows what the camera is tracking</li>
-          </ul>
-        </div>
-        <div>
-          <h4>3D geometry</h4>
-          <ul>
-            <li>Structures get real 3D shapes built from VSEPR angles and covalent bond lengths</li>
-            <li>Ring templates for aromatics and chair cyclohexanes, then a relaxation pass</li>
-            <li>Hydrogens placed at open coordination sites</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Privacy</h4>
-          <ul>
-            <li>Hand tracking runs on your device; the model ships with the app, not from a CDN</li>
-            <li>Camera frames are never recorded or transmitted</li>
-            <li>Works without a camera — drag to rotate instead</li>
-          </ul>
-        </div>
-      </div>
+            </div>
+          </details>
 
-      <div class="version-links">
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.0.0/ChemCanvas-Setup.exe" download>Download v2.0.0</a>
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
-      </div>
-    </details>
+          <details class="minor">
+            <summary class="minor-head">
+              <span class="minor-tag">v2.1</span>
+              <span class="tier-meta">1 release</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="patches">
 
-    <details class="version reveal">
-      <summary class="version-head">
-        <span class="version-tag">v1.0.0</span>
-        <span class="version-date">July 28, 2026</span>
-        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <p class="version-note">Initial release.</p>
+              <details class="version">
+                <summary class="version-head">
+                  <span class="version-tag">v2.1.0</span>
+                  <span class="version-date">August 1, 2026</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
 
-      <div class="version-groups">
-        <div>
-          <h4>Search</h4>
-          <ul>
-            <li>Type a name, get an editable structure (PubChem, OPSIN fallback)</li>
-            <li>SMILES paste with live validation</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Drawing</h4>
-          <ul>
-            <li>Atoms, bonds, rings, chains — 30° snapping, predictive growth</li>
-            <li>Ring fusion onto existing atoms or bonds</li>
-            <li>Valence warnings</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Reactions &amp; stereochemistry</h4>
-          <ul>
-            <li>Forward, equilibrium, retrosynthetic, resonance, curly arrows</li>
-            <li>Wedge/dash bonds, automatic R/S and E/Z labels</li>
-            <li>Newman projections</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Identification</h4>
-          <ul>
-            <li>Select a structure, get a name back — exact and connectivity matching against PubChem</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Templates &amp; editing</h4>
-          <ul>
-            <li>Rings, functional groups, 20 amino acids, nucleotide bases, drug scaffolds</li>
-            <li>Unlimited undo/redo, clickable history panel, autosave</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Files</h4>
-          <ul>
-            <li>Export: PNG (72–600 dpi), SVG, PDF, MOL, SDF, SMILES, InChI</li>
-            <li>Import: MOL, SDF, SMILES, RXN</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Desktop app</h4>
-          <ul>
-            <li>Windows installer and portable build</li>
-          </ul>
-        </div>
-        <div>
-          <h4>Privacy</h4>
-          <ul>
-            <li>No accounts, no telemetry, works offline — network only for lookups you trigger</li>
-          </ul>
-        </div>
-      </div>
+                <div class="version-groups">
+                  <div>
+                    <h4>Genuine 3D rendering</h4>
+                    <ul>
+                      <li>Rebuilt on WebGL: perspective camera, real lighting, depth buffer</li>
+                      <li>Atoms are lit spheres whose highlights move as you turn them</li>
+                      <li>Contact shadows, so the molecule sits in the room instead of on top of it</li>
+                      <li>Near atoms are genuinely larger than far ones</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Accurate geometry</h4>
+                    <ul>
+                      <li>Fetches properly embedded 3D coordinates from the NCI structure service</li>
+                      <li>Fixes strained bonds in bridged cages — morphine 1.68 Å → 1.54 Å</li>
+                      <li>Falls back to on-device geometry offline; toggle it off any time</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>AR playground</h4>
+                    <ul>
+                      <li>Tap an atom to inspect it — element, atomic number, mass, charge</li>
+                      <li>Measure mode: two atoms for a bond length, three for an angle</li>
+                      <li>Switch between structures without leaving AR</li>
+                      <li>Move your hand toward the camera to pull the molecule closer</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Fixes</h4>
+                    <ul>
+                      <li>Large molecules no longer hang — a 100-carbon chain went from never finishing to about a second</li>
+                      <li>Long chains extend properly instead of coiling into a ball</li>
+                      <li>Size limit raised from 220 to 600 atoms</li>
+                      <li>Carbon labels dropped in favour of heteroatoms only, as skeletal structures are drawn</li>
+                    </ul>
+                  </div>
+                </div>
 
-      <div class="version-links">
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v1.0.0/ChemCanvas-Setup.exe" download>Download v1.0.0</a>
-        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v1.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
-      </div>
-    </details>
-  </div>
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.1.0/ChemCanvas-Setup.exe" download>Download v2.1.0</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.1.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
+
+            </div>
+          </details>
+
+          <details class="minor">
+            <summary class="minor-head">
+              <span class="minor-tag">v2.0</span>
+              <span class="tier-meta">1 release</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="patches">
+
+              <details class="version">
+                <summary class="version-head">
+                  <span class="version-tag">v2.0.0</span>
+                  <span class="version-date">August 1, 2026</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
+
+                <div class="version-groups">
+                  <div>
+                    <h4>AR viewer</h4>
+                    <ul>
+                      <li>Select a structure and press <b>View in AR</b> to see it in 3D over your camera</li>
+                      <li>Ball-and-stick, space-filling, and wireframe modes</li>
+                      <li>Save a photo of the AR scene</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Hand control</h4>
+                    <ul>
+                      <li>Open palm places the molecule above your hand</li>
+                      <li>Pinch and move to rotate</li>
+                      <li>Two pinched hands to resize</li>
+                      <li>On-screen skeleton shows what the camera is tracking</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>3D geometry</h4>
+                    <ul>
+                      <li>Structures get real 3D shapes built from VSEPR angles and covalent bond lengths</li>
+                      <li>Ring templates for aromatics and chair cyclohexanes, then a relaxation pass</li>
+                      <li>Hydrogens placed at open coordination sites</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Privacy</h4>
+                    <ul>
+                      <li>Hand tracking runs on your device; the model ships with the app, not from a CDN</li>
+                      <li>Camera frames are never recorded or transmitted</li>
+                      <li>Works without a camera — drag to rotate instead</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.0.0/ChemCanvas-Setup.exe" download>Download v2.0.0</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
+
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <details class="major reveal">
+        <summary class="major-head">
+          <span class="major-tag">v1</span>
+          <span class="tier-meta">1 release · newest v1.0.0</span>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+
+        <div class="minors">
+          <details class="minor">
+            <summary class="minor-head">
+              <span class="minor-tag">v1.0</span>
+              <span class="tier-meta">1 release</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="patches">
+
+              <details class="version">
+                <summary class="version-head">
+                  <span class="version-tag">v1.0.0</span>
+                  <span class="version-date">July 28, 2026</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">Initial release.</p>
+
+                <div class="version-groups">
+                  <div>
+                    <h4>Search</h4>
+                    <ul>
+                      <li>Type a name, get an editable structure (PubChem, OPSIN fallback)</li>
+                      <li>SMILES paste with live validation</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Drawing</h4>
+                    <ul>
+                      <li>Atoms, bonds, rings, chains — 30° snapping, predictive growth</li>
+                      <li>Ring fusion onto existing atoms or bonds</li>
+                      <li>Valence warnings</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Reactions &amp; stereochemistry</h4>
+                    <ul>
+                      <li>Forward, equilibrium, retrosynthetic, resonance, curly arrows</li>
+                      <li>Wedge/dash bonds, automatic R/S and E/Z labels</li>
+                      <li>Newman projections</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Identification</h4>
+                    <ul>
+                      <li>Select a structure, get a name back — exact and connectivity matching against PubChem</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Templates &amp; editing</h4>
+                    <ul>
+                      <li>Rings, functional groups, 20 amino acids, nucleotide bases, drug scaffolds</li>
+                      <li>Unlimited undo/redo, clickable history panel, autosave</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Files</h4>
+                    <ul>
+                      <li>Export: PNG (72–600 dpi), SVG, PDF, MOL, SDF, SMILES, InChI</li>
+                      <li>Import: MOL, SDF, SMILES, RXN</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Desktop app</h4>
+                    <ul>
+                      <li>Windows installer and portable build</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Privacy</h4>
+                    <ul>
+                      <li>No accounts, no telemetry, works offline — network only for lookups you trigger</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v1.0.0/ChemCanvas-Setup.exe" download>Download v1.0.0</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v1.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
+
+            </div>
+          </details>
+        </div>
+      </details>
+    </div>
 </section>
 
 <section id="developer">
