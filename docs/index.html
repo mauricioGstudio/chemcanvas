@@ -165,15 +165,28 @@
   .changelog-intro { color: var(--ink-soft); margin-top: 22px; max-width: 560px; }
   .versions { margin-top: 44px; display: flex; flex-direction: column; gap: 24px; }
   .version { border: 1px solid var(--line); border-radius: 14px; padding: 30px 32px; background: var(--card); }
-  .version-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .version-head {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    cursor: pointer; user-select: none; list-style: none; margin: -6px; padding: 6px;
+  }
+  .version-head::-webkit-details-marker { display: none; }
   .version-tag { font-weight: 800; font-size: 21px; letter-spacing: -0.01em; }
   .version-date { font-size: 14px; color: var(--ink-faint); }
+  .version-chev {
+    margin-left: auto; width: 20px; height: 20px; flex-shrink: 0; color: var(--ink-faint);
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .version[open] .version-chev { transform: rotate(180deg); }
+  .version-head:hover .version-chev { color: var(--ink); }
   .version-note { color: var(--ink-soft); margin-top: 8px; font-size: 15px; }
   .version-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 22px 28px; margin-top: 26px; }
   .version-groups h4 { font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em; margin-bottom: 8px; }
   .version-groups ul { list-style: none; }
   .version-groups li { font-size: 14px; color: var(--ink-soft); padding: 3px 0; }
   .version-links { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
+
+  /* collapsed <details> already hides everything but <summary>; just trim the padding */
+  .version:not([open]) { padding-bottom: 24px; }
 
   /* developer */
   .dev { max-width: 640px; }
@@ -527,12 +540,13 @@
   <p class="changelog-intro reveal">Every release gets its own entry here, with its own download link that keeps working after newer versions ship — so you can always go back to an older one.</p>
 
   <div class="versions">
-    <div class="version reveal">
-      <div class="version-head">
+    <details class="version reveal" open>
+      <summary class="version-head">
         <span class="version-tag">v2.3.0</span>
         <span class="version-date">August 1, 2026</span>
         <span class="badge">Latest</span>
-      </div>
+        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
       <p class="version-note">One molecule at a time, held still while you work on it.</p>
 
       <div class="version-groups">
@@ -567,13 +581,14 @@
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.0/ChemCanvas-Setup.exe" download>Download v2.3.0</a>
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
       </div>
-    </div>
+    </details>
 
-    <div class="version reveal">
-      <div class="version-head">
+    <details class="version reveal">
+      <summary class="version-head">
         <span class="version-tag">v2.2.1</span>
         <span class="version-date">August 1, 2026</span>
-      </div>
+        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
       <p class="version-note">Publisher identification, so Windows shows whose app this is.</p>
 
       <div class="version-groups">
@@ -590,13 +605,14 @@
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.1/ChemCanvas-Setup.exe" download>Download v2.2.1</a>
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.1" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
       </div>
-    </div>
+    </details>
 
-    <div class="version reveal">
-      <div class="version-head">
+    <details class="version reveal">
+      <summary class="version-head">
         <span class="version-tag">v2.2.0</span>
         <span class="version-date">August 1, 2026</span>
-      </div>
+        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
       <p class="version-note">The whole canvas goes to AR at once, and you choose what to handle.</p>
 
       <div class="version-groups">
@@ -637,13 +653,14 @@
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.0/ChemCanvas-Setup.exe" download>Download v2.2.0</a>
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
       </div>
-    </div>
+    </details>
 
-    <div class="version reveal">
-      <div class="version-head">
+    <details class="version reveal">
+      <summary class="version-head">
         <span class="version-tag">v2.1.0</span>
         <span class="version-date">August 1, 2026</span>
-      </div>
+        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
       <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
 
       <div class="version-groups">
@@ -688,20 +705,21 @@
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.1.0/ChemCanvas-Setup.exe" download>Download v2.1.0</a>
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.1.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
       </div>
-    </div>
+    </details>
 
-    <div class="version reveal">
-      <div class="version-head">
+    <details class="version reveal">
+      <summary class="version-head">
         <span class="version-tag">v2.0.0</span>
         <span class="version-date">August 1, 2026</span>
-      </div>
+        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
       <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
 
       <div class="version-groups">
         <div>
           <h4>AR viewer</h4>
           <ul>
-            <li>Press <b>AR</b> to bring every structure on the canvas into 3D over your camera</li>
+            <li>Select a structure and press <b>View in AR</b> to see it in 3D over your camera</li>
             <li>Ball-and-stick, space-filling, and wireframe modes</li>
             <li>Save a photo of the AR scene</li>
           </ul>
@@ -709,9 +727,8 @@
         <div>
           <h4>Hand control</h4>
           <ul>
-            <li>Pinch any part of a molecule to focus it — it grows in place, the others fade back</li>
-            <li>Pinch one of its atoms and move your hand to turn it</li>
-            <li>Pinch clear of it to let it go</li>
+            <li>Open palm places the molecule above your hand</li>
+            <li>Pinch and move to rotate</li>
             <li>Two pinched hands to resize</li>
             <li>On-screen skeleton shows what the camera is tracking</li>
           </ul>
@@ -738,13 +755,14 @@
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.0.0/ChemCanvas-Setup.exe" download>Download v2.0.0</a>
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
       </div>
-    </div>
+    </details>
 
-    <div class="version reveal">
-      <div class="version-head">
+    <details class="version reveal">
+      <summary class="version-head">
         <span class="version-tag">v1.0.0</span>
         <span class="version-date">July 28, 2026</span>
-      </div>
+        <svg class="version-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
       <p class="version-note">Initial release.</p>
 
       <div class="version-groups">
@@ -809,7 +827,7 @@
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v1.0.0/ChemCanvas-Setup.exe" download>Download v1.0.0</a>
         <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v1.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
       </div>
-    </div>
+    </details>
   </div>
 </section>
 
