@@ -1,9 +1,11 @@
 {
   "name": "chemcanvas",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Draw, search, and export chemical structures.",
-  "author": "Mauricio",
+  "author": {
+    "name": "Mauricio Gubert"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -17,6 +19,7 @@
   "build": {
     "appId": "com.chemcanvas.app",
     "productName": "ChemCanvas",
+    "copyright": "Copyright © 2026 Mauricio Gubert",
     "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "release"
