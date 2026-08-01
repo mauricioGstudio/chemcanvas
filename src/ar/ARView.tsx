@@ -26,14 +26,17 @@ import {
   interpretGestures,
   type HandsFrame,
 } from './hands'
-import { MoleculeScene, type DisplayMode, type ScenePick } from './scene3d'
+import { MoleculeScene, type DisplayMode } from './scene3d'
 
 /**
  * Fullscreen AR viewer: every structure from the canvas, laid out side by
- * side in real WebGL, over the live camera. Nothing moves on its own —
- * pinching (or clicking) a molecule picks it as the focus, and only the
- * focused one responds to rotate/resize/depth gestures until you pick a
- * different one or hit Reset.
+ * side in real WebGL, over the live camera.
+ *
+ * Nothing moves on its own. Pinching (or clicking) any part of a molecule
+ * makes it the focus: it grows where it stands, everything else dims, and it
+ * is the only thing gestures reach until you pinch clear of it. Turning it
+ * takes a second, deliberate pinch on one of its atoms — so a hand crossing
+ * the frame can't nudge the structure you're reading.
  *
  * Degradation is layered, because cameras and models fail for ordinary
  * reasons: camera + hands → gestures; camera only → click and drag; neither
@@ -67,7 +70,6 @@ export default function ARView() {
   const buildTotal = useARStore((s) => s.buildTotal)
   const entries = useARStore((s) => s.entries)
   const focusedId = useARStore((s) => s.focusedId)
-  const setFocus = useARStore((s) => s.setFocus)
   const close = useARStore((s) => s.close)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -84,6 +86,13 @@ export default function ARView() {
   const spinRef = useRef(true)
   const focusedIdRef = useRef<string | null>(null)
   const measuringRef = useRef(false)
+  /**
+   * True only between a pinch (or press) that landed on an atom of the
+   * focused molecule and its release. Rotation is gated on this so a hand
+   * merely moving through frame — pinched or not — never disturbs the
+   * molecule you are working on.
+   */
+  const rotatingRef = useRef(false)
   const view = useRef<ViewState>({ yaw: 0.6, pitch: 0.3, distance: 30 })
 
   const [cameraOn, setCameraOn] = useState(false)
@@ -206,8 +215,73 @@ export default function ARView() {
   }, [mode, showHydrogens, showLabels])
 
   useEffect(() => {
-    sceneRef.current?.setFocusHighlight(focusedId)
+    const scene = sceneRef.current
+    if (!scene) return
+    scene.setFocusHighlight(focusedId)
+    scene.setFocusExpansion(focusedId, view.current.distance)
   }, [focusedId])
+
+  /**
+   * Change focus and grow or shrink to match, without waiting for a re-render.
+   * The ref is written directly because the render loop reads it on the same
+   * frame the pinch lands — going through state alone would be one frame late.
+   */
+  const applyFocus = useCallback((id: string | null) => {
+    focusedIdRef.current = id
+    useARStore.getState().setFocus(id)
+    const scene = sceneRef.current
+    if (!scene) return
+    scene.setFocusHighlight(id)
+    scene.setFocusExpansion(id, view.current.distance)
+  }, [])
+
+  /**
+   * A pinch or click landing somewhere in the scene.
+   *
+   * With nothing focused, hitting any part of a molecule — atom or bond —
+   * makes it the focus and expands it. Once something is focused the rules
+   * narrow: one of its atoms starts a rotation, anywhere else still over it
+   * does nothing, and only a pinch clear of it gives the focus back up.
+   */
+  const handlePinch = useCallback(
+    (scene: MoleculeScene, ndcX: number, ndcY: number) => {
+      const hit = scene.pick(ndcX, ndcY)
+
+      if (measuringRef.current) {
+        if (!hit) return
+        setMeasurePicks((prev) => {
+          const p = { moleculeId: hit.moleculeId, atom: hit.atom }
+          // Cross-molecule measurement isn't chemically meaningful — starting
+          // a pick on a different structure restarts the chain there instead.
+          if (prev.length > 0 && prev[0].moleculeId !== hit.moleculeId) return [p]
+          return prev.length >= 3 ? [p] : [...prev, p]
+        })
+        return
+      }
+
+      const focus = focusedIdRef.current
+      if (focus) {
+        if (hit && hit.moleculeId === focus) {
+          rotatingRef.current = true
+          setSelected({ moleculeId: hit.moleculeId, atom: hit.atom })
+          return
+        }
+        // Over the focused molecule but between its atoms: keep it. Only a
+        // pinch clear of the whole structure counts as letting go.
+        if (scene.withinBounds(focus, ndcX, ndcY)) return
+        applyFocus(null)
+        setSelected(null)
+        return
+      }
+
+      const picked = hit?.moleculeId ?? scene.pickMolecule(ndcX, ndcY)
+      if (!picked) return
+      rotatingRef.current = false
+      applyFocus(picked)
+      setSelected(hit ? { moleculeId: hit.moleculeId, atom: hit.atom } : null)
+    },
+    [applyFocus],
+  )
 
   // ---- render loop ----------------------------------------------------------
   useEffect(() => {
@@ -216,10 +290,14 @@ export default function ARView() {
     const overlay = overlayRef.current
     if (!canvas || !overlay) return
 
+    let lastT = performance.now()
+
     const loop = (t: number) => {
       rafRef.current = requestAnimationFrame(loop)
       const scene = sceneRef.current
       if (!scene) return
+      const dt = (t - lastT) / 1000
+      lastT = t
 
       const w = canvas.clientWidth
       const h = canvas.clientHeight
@@ -235,40 +313,52 @@ export default function ARView() {
         const hands = detectHands(video, t)
         handsRef.current = hands
         const g = interpretGestures(hands, gestureMem.current)
-        const focus = focusedIdRef.current
 
         if (g.pinchStarted) {
           const ndcX = g.pinchStarted.x * 2 - 1
           const ndcY = -(g.pinchStarted.y * 2 - 1)
-          applyPick(scene.pick(ndcX, ndcY))
+          handlePinch(scene, ndcX, ndcY)
         }
+        // Letting go ends the rotation, whatever happens next.
+        if (!g.pinchActive) rotatingRef.current = false
 
-        if (g.mode === 'rotate' && g.pinchActive && focus) {
+        // Read after handlePinch: it updates the ref itself rather than
+        // waiting for a re-render, so a pinch takes effect on its own frame.
+        const focus = focusedIdRef.current
+
+        if (g.mode === 'rotate' && g.pinchActive && focus && rotatingRef.current) {
           scene.rotateInstance(focus, g.dYaw, g.dPitch)
         }
         if (g.mode === 'scale' && g.scaleFactor !== 1) {
           if (focus) scene.scaleInstance(focus, g.scaleFactor)
           else view.current.distance = clamp(view.current.distance / g.scaleFactor, 4, 500)
         }
-        if (g.depthFactor !== 1) {
-          if (focus) scene.depthInstance(focus, g.depthFactor)
-          else view.current.distance = clamp(view.current.distance * g.depthFactor, 4, 500)
+        // Hand-distance depth moves the camera, and only when nothing is
+        // focused. It used to push the focused molecule back and forth, which
+        // meant the structure you were working on drifted whenever your hand
+        // did — including when you weren't pinching at all.
+        if (g.depthFactor !== 1 && !focus) {
+          view.current.distance = clamp(view.current.distance * g.depthFactor, 4, 500)
         }
 
         setHintThrottled(
           focus
             ? g.mode === 'scale'
               ? 'Move hands apart or together to resize'
-              : 'Move your hand to rotate — pinch elsewhere to switch'
+              : rotatingRef.current
+                ? 'Move your hand to turn it'
+                : 'Pinch an atom to turn it — pinch away to let it go'
             : 'Pinch a molecule to select it',
         )
       }
 
       const focus = focusedIdRef.current
-      if (spinRef.current && !dragRef.current) {
+      if (spinRef.current && !dragRef.current && !rotatingRef.current) {
         if (focus) scene.rotateInstance(focus, 0.01, 0)
         else view.current.yaw += 0.006
       }
+
+      scene.update(dt)
 
       // Whole-scene orbit only applies when nothing is focused — a focused
       // molecule is manipulated on its own, in place.
@@ -284,25 +374,7 @@ export default function ARView() {
 
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [open, hasEntries, track, showSkeleton, measurePicks, selected])
-
-  /** A pick from either hand-pinch or mouse click: focus it, or add it to a measurement. */
-  const applyPick = useCallback((hit: ScenePick | null) => {
-    if (measuringRef.current) {
-      if (!hit) return
-      setMeasurePicks((prev) => {
-        const p = { moleculeId: hit.moleculeId, atom: hit.atom }
-        // Cross-molecule measurement isn't chemically meaningful — starting
-        // a pick on a different structure restarts the chain there instead.
-        if (prev.length > 0 && prev[0].moleculeId !== hit.moleculeId) return [p]
-        return prev.length >= 3 ? [p] : [...prev, p]
-      })
-      return
-    }
-    const newFocus = hit ? hit.moleculeId : null
-    if (newFocus !== focusedIdRef.current) useARStore.getState().setFocus(newFocus)
-    setSelected(hit ? { moleculeId: hit.moleculeId, atom: hit.atom } : null)
-  }, [])
+  }, [open, hasEntries, track, showSkeleton, measurePicks, selected, handlePinch])
 
   // Avoid a setState every frame; the hint only changes on gesture changes.
   const lastHint = useRef('')
@@ -322,7 +394,8 @@ export default function ARView() {
           setMeasuring(false)
           setMeasurePicks([])
         } else if (focusedIdRef.current) {
-          setFocus(null)
+          rotatingRef.current = false
+          applyFocus(null)
           setSelected(null)
         } else {
           close()
@@ -331,17 +404,18 @@ export default function ARView() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, close, setFocus])
+  }, [open, close, applyFocus])
 
   const resetView = useCallback(() => {
     const scene = sceneRef.current
     if (!scene) return
     scene.resetAllTransforms()
     view.current = { yaw: 0.6, pitch: 0.3, distance: scene.fitDistance() }
-    setFocus(null)
+    rotatingRef.current = false
+    applyFocus(null)
     setSelected(null)
     setMeasurePicks([])
-  }, [setFocus])
+  }, [applyFocus])
 
   /** Save a still of the camera feed plus the scene. */
   const capture = useCallback(() => {
@@ -387,8 +461,29 @@ export default function ARView() {
   if (!open) return null
 
   // ---- pointer input (mouse/touch fallback) ----------------------------------
+  /** Canvas-relative normalized device coordinates for a pointer event. */
+  const ndcOf = (e: React.PointerEvent) => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      y: -(((e.clientY - rect.top) / rect.height) * 2 - 1),
+    }
+  }
+
   const pointerDown = (e: React.PointerEvent) => {
     dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }
+    // Mirrors the pinch rule: a drag only turns the focused molecule if it
+    // began on one of its atoms.
+    const scene = sceneRef.current
+    const focus = focusedIdRef.current
+    const ndc = ndcOf(e)
+    rotatingRef.current = false
+    if (scene && ndc && focus && !measuringRef.current) {
+      const hit = scene.pick(ndc.x, ndc.y)
+      rotatingRef.current = hit?.moleculeId === focus
+    }
     try {
       ;(e.target as Element).setPointerCapture?.(e.pointerId)
     } catch {
@@ -407,8 +502,11 @@ export default function ARView() {
       d.moved || Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) > 3
     const scene = sceneRef.current
     const focus = focusedIdRef.current
-    if (focus && scene) {
-      scene.rotateInstance(focus, dx * 0.01, dy * 0.01)
+    if (focus) {
+      // Anything but an atom-started drag leaves it alone: orbiting the scene
+      // would slide the focused molecule across the screen, and it is meant to
+      // stay put unless you are turning it.
+      if (rotatingRef.current && scene) scene.rotateInstance(focus, dx * 0.01, dy * 0.01)
     } else {
       view.current.yaw += dx * 0.01
       view.current.pitch = clamp(view.current.pitch + dy * 0.01, -1.6, 1.6)
@@ -418,15 +516,13 @@ export default function ARView() {
   const pointerUp = (e: React.PointerEvent) => {
     const d = dragRef.current
     dragRef.current = null
+    rotatingRef.current = false
     if (!d || d.moved) return
     // A click without drag is a pick, mirroring pinch-to-select.
     const scene = sceneRef.current
-    const canvas = canvasRef.current
-    if (!scene || !canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1
-    const ndcY = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
-    applyPick(scene.pick(ndcX, ndcY))
+    const ndc = ndcOf(e)
+    if (!scene || !ndc) return
+    handlePinch(scene, ndc.x, ndc.y)
   }
   const onWheel = (e: React.WheelEvent) => {
     const scene = sceneRef.current
@@ -647,7 +743,7 @@ export default function ARView() {
             ? 'Embedded 3D coordinates from the NCI structure service.'
             : 'Shape built on this device from idealized bond angles — not an energy-minimized conformer.'
           : entries.length > 1
-            ? 'Pinch or click a molecule to rotate, resize, or pull it closer.'
+            ? 'Pinch or click a molecule to expand it, then pinch an atom to turn it.'
             : 'Shape built on this device from idealized bond angles — not an energy-minimized conformer.'}
       </p>
     </div>

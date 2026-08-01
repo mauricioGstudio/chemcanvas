@@ -474,7 +474,7 @@
       <p class="label">New in 2.2</p>
       <h2>Put the whole canvas in the room</h2>
       <p>Press <b>AR</b> and everything you've drawn comes with you — not one structure at a time. ChemCanvas works out each shape, opens your camera, and stands them all up in a row in front of you, spheres for atoms, real depth, real geometry. A progress bar counts the structures as they're built, so you're never staring at an empty screen wondering.</p>
-      <p>Pinch a molecule to make it the one you're working on. The rest fade back, and it's yours: move your hand to turn it over, pinch with both hands and pull them apart to make it bigger, reach toward the camera to bring it closer. Pinch a different one to switch. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
+      <p>Pinch any part of a molecule and it grows — right where it stands, no jumping to the middle — while everything else fades back. From then on it's the only thing your hands can reach. Pinch one of its atoms and move your hand to turn it over; pinch with both hands and pull them apart to make it bigger. It turns on its own axis and stays exactly where you left it, so a hand crossing the frame can't nudge the structure you're reading. Pinch clear of it to let it go. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
       <p>It's built to be worked in, not just watched: pick any atom to read its element, mass and charge, or measure a bond length or an angle by picking two or three atoms on the same structure.</p>
       <p class="note">Ball-and-stick, space-filling, or wireframe · save a photo of what you see · works with a mouse too if you'd rather drag</p>
     </div>
@@ -513,7 +513,7 @@
   <div class="dl reveal">
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 2.2.1</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
+    <div class="meta"><span>Version 2.3.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
     <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
@@ -529,9 +529,50 @@
   <div class="versions">
     <div class="version reveal">
       <div class="version-head">
-        <span class="version-tag">v2.2.1</span>
+        <span class="version-tag">v2.3.0</span>
         <span class="version-date">August 1, 2026</span>
         <span class="badge">Latest</span>
+      </div>
+      <p class="version-note">One molecule at a time, held still while you work on it.</p>
+
+      <div class="version-groups">
+        <div>
+          <h4>Pinch to expand</h4>
+          <ul>
+            <li>Pinching any part of a molecule — atom or bond — now grows it</li>
+            <li>It expands where it stands; nothing is re-centred or moved</li>
+            <li>Everything else fades back and stops responding to your hands</li>
+            <li>Pinch clear of it to let it go and return to the full canvas</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Turning it</h4>
+          <ul>
+            <li>Rotation now takes a deliberate pinch on one of its atoms</li>
+            <li>It turns on its own axis and holds its position on screen</li>
+            <li>Pinching the gaps between its atoms no longer drops the focus</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Fixes</h4>
+          <ul>
+            <li>A focused molecule no longer drifts when your hand moves nearer or further from the camera — hand distance now moves the camera instead, and only when nothing is focused</li>
+            <li>Dragging off the molecule no longer swings the whole scene, which used to slide the focused structure across the screen</li>
+            <li>Escape and Reset clear the dimming immediately rather than on the next frame</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-links">
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.0/ChemCanvas-Setup.exe" download>Download v2.3.0</a>
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+      </div>
+    </div>
+
+    <div class="version reveal">
+      <div class="version-head">
+        <span class="version-tag">v2.2.1</span>
+        <span class="version-date">August 1, 2026</span>
       </div>
       <p class="version-note">Publisher identification, so Windows shows whose app this is.</p>
 
@@ -668,8 +709,9 @@
         <div>
           <h4>Hand control</h4>
           <ul>
-            <li>Pinch a molecule to make it the focus — the others fade back</li>
-            <li>Move your pinched hand to rotate it</li>
+            <li>Pinch any part of a molecule to focus it — it grows in place, the others fade back</li>
+            <li>Pinch one of its atoms and move your hand to turn it</li>
+            <li>Pinch clear of it to let it go</li>
             <li>Two pinched hands to resize</li>
             <li>On-screen skeleton shows what the camera is tracking</li>
           </ul>
