@@ -161,6 +161,20 @@
   .fineprint { max-width: 540px; margin: 32px auto 0; font-size: 14px; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 22px; line-height: 1.65; }
   .fineprint.alt { margin-top: 12px; border-top: 0; padding-top: 0; }
 
+  /* changelog */
+  .changelog-intro { color: var(--ink-soft); margin-top: 22px; max-width: 560px; }
+  .versions { margin-top: 44px; display: flex; flex-direction: column; gap: 24px; }
+  .version { border: 1px solid var(--line); border-radius: 14px; padding: 30px 32px; background: var(--card); }
+  .version-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .version-tag { font-weight: 800; font-size: 21px; letter-spacing: -0.01em; }
+  .version-date { font-size: 14px; color: var(--ink-faint); }
+  .version-note { color: var(--ink-soft); margin-top: 8px; font-size: 15px; }
+  .version-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 22px 28px; margin-top: 26px; }
+  .version-groups h4 { font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em; margin-bottom: 8px; }
+  .version-groups ul { list-style: none; }
+  .version-groups li { font-size: 14px; color: var(--ink-soft); padding: 3px 0; }
+  .version-links { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
+
   /* developer */
   .dev { max-width: 640px; }
   .dev p { color: var(--ink-soft); margin-bottom: 22px; }
@@ -220,6 +234,7 @@
     <a href="#features">Features</a>
     <a href="#more">In the box</a>
     <a href="#download">Download</a>
+    <a href="#changelog">Changelog</a>
     <a href="#developer">Developer</a>
     <a href="#privacy">Privacy</a>
   </div>
@@ -482,6 +497,86 @@
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
     <p class="fineprint alt"><a href="https://chemcanvas.vercel.app" target="_blank" rel="noopener" style="color: var(--accent); border-bottom: 1px solid var(--accent)">Web-based version</a></p>
+  </div>
+</section>
+
+<section id="changelog">
+  <p class="label">Changelog</p>
+  <h2>Version history</h2>
+  <p class="changelog-intro reveal">Every release gets its own entry here, with its own download link that keeps working after newer versions ship — so you can always go back to an older one.</p>
+
+  <div class="versions">
+    <div class="version reveal">
+      <div class="version-head">
+        <span class="version-tag">v1.0.0</span>
+        <span class="version-date">July 28, 2026</span>
+        <span class="badge">Latest</span>
+      </div>
+      <p class="version-note">Initial release.</p>
+
+      <div class="version-groups">
+        <div>
+          <h4>Search</h4>
+          <ul>
+            <li>Type a name, get an editable structure (PubChem, OPSIN fallback)</li>
+            <li>SMILES paste with live validation</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Drawing</h4>
+          <ul>
+            <li>Atoms, bonds, rings, chains — 30° snapping, predictive growth</li>
+            <li>Ring fusion onto existing atoms or bonds</li>
+            <li>Valence warnings</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Reactions &amp; stereochemistry</h4>
+          <ul>
+            <li>Forward, equilibrium, retrosynthetic, resonance, curly arrows</li>
+            <li>Wedge/dash bonds, automatic R/S and E/Z labels</li>
+            <li>Newman projections</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Identification</h4>
+          <ul>
+            <li>Select a structure, get a name back — exact and connectivity matching against PubChem</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Templates &amp; editing</h4>
+          <ul>
+            <li>Rings, functional groups, 20 amino acids, nucleotide bases, drug scaffolds</li>
+            <li>Unlimited undo/redo, clickable history panel, autosave</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Files</h4>
+          <ul>
+            <li>Export: PNG (72–600 dpi), SVG, PDF, MOL, SDF, SMILES, InChI</li>
+            <li>Import: MOL, SDF, SMILES, RXN</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Desktop app</h4>
+          <ul>
+            <li>Windows installer and portable build</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Privacy</h4>
+          <ul>
+            <li>No accounts, no telemetry, works offline — network only for lookups you trigger</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-links">
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v1.0.0/ChemCanvas-Setup.exe" download>Download v1.0.0</a>
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v1.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+      </div>
+    </div>
   </div>
 </section>
 
