@@ -103,8 +103,8 @@ const registry: Command[] = [
   },
   {
     id: 'view-ar',
-    title: 'View in AR',
-    keywords: 'ar augmented reality 3d camera hand gesture view molecule model',
+    title: 'View canvas in AR',
+    keywords: 'ar augmented reality 3d camera hand gesture view molecule model pinch focus',
     run: () => openAR(),
   },
   {

@@ -138,8 +138,15 @@ export function detectHands(
 }
 
 export interface GestureState {
-  /** Molecule anchor in normalized image space. */
-  anchor: { x: number; y: number } | null
+  /**
+   * Fires once, on the frame a single-hand pinch begins — not while it
+   * continues. This is the pick point: what's pinched at this instant
+   * becomes the focused molecule, so a rotate-drag doesn't also re-pick on
+   * every frame.
+   */
+  pinchStarted: { x: number; y: number } | null
+  /** True for every frame a single-hand pinch is held (after the start). */
+  pinchActive: boolean
   /** Accumulated rotation deltas this frame, radians. */
   dYaw: number
   dPitch: number
@@ -147,11 +154,10 @@ export interface GestureState {
   scaleFactor: number
   /**
    * Depth change this frame, from how much nearer or further the hand is.
-   * >1 pushes the molecule away, <1 pulls it toward the viewer.
+   * >1 pushes away, <1 pulls toward the viewer.
    */
   depthFactor: number
-  mode: 'idle' | 'follow' | 'rotate' | 'scale'
-  hint: string
+  mode: 'idle' | 'rotate' | 'scale'
 }
 
 interface GestureMemory {
@@ -159,38 +165,40 @@ interface GestureMemory {
   lastTwoHandDist: number | null
   /** Hand span last frame — the proxy for distance from the camera. */
   lastSpan: number | null
+  /** Was a single hand pinching last frame? Rising edge = pick. */
+  wasPinching: boolean
 }
 
 export function createGestureMemory(): GestureMemory {
-  return { lastPinchMid: null, lastTwoHandDist: null, lastSpan: null }
+  return { lastPinchMid: null, lastTwoHandDist: null, lastSpan: null, wasPinching: false }
 }
 
 /**
  * Turn a frame of hands into interaction deltas.
  *
- * Gesture vocabulary, chosen so each is distinguishable from the others
- * with a single camera (no depth):
- *   - one open hand      → molecule rides above the palm
- *   - one pinched hand   → drag to rotate
- *   - two pinched hands  → spread/close to scale
+ * There is deliberately no "open hand" gesture anymore — molecules used to
+ * ride along under an open palm, which meant the scene reacted to a hand
+ * just being in frame. Now nothing moves until you pinch: a pinch starting
+ * on a molecule picks it, and only pinching manipulates anything.
+ *
+ *   - pinch starting on a molecule → picks it (fires once)
+ *   - one pinched hand, held        → drag to rotate
+ *   - two pinched hands             → spread/close to scale
  */
-export function interpretGestures(
-  hands: HandsFrame,
-  mem: GestureMemory,
-): GestureState {
+export function interpretGestures(hands: HandsFrame, mem: GestureMemory): GestureState {
   const out: GestureState = {
-    anchor: null,
+    pinchStarted: null,
+    pinchActive: false,
     dYaw: 0,
     dPitch: 0,
     scaleFactor: 1,
     depthFactor: 1,
     mode: 'idle',
-    hint: 'Show a hand to place the molecule',
   }
 
   // Depth from hand span: a hand held closer to the camera covers more of
   // the frame. Tracked on any single visible hand, so moving your hand
-  // toward or away from the camera moves the molecule in depth.
+  // toward or away from the camera changes depth.
   if (hands.length === 1) {
     const span = hands[0].span
     if (mem.lastSpan !== null && mem.lastSpan > 1e-4) {
@@ -215,9 +223,8 @@ export function interpretGestures(
     }
     mem.lastTwoHandDist = d
     mem.lastPinchMid = null
-    out.anchor = { x: (a.palm.x + b.palm.x) / 2, y: (a.palm.y + b.palm.y) / 2 }
+    mem.wasPinching = false
     out.mode = 'scale'
-    out.hint = 'Move hands apart or together to resize'
     return out
   }
   mem.lastTwoHandDist = null
@@ -228,25 +235,23 @@ export function interpretGestures(
       x: (h.points[THUMB_TIP].x + h.points[INDEX_TIP].x) / 2,
       y: (h.points[THUMB_TIP].y + h.points[INDEX_TIP].y) / 2,
     }
-    if (mem.lastPinchMid) {
-      // Horizontal drag spins around Y, vertical drag tips around X.
+    if (!mem.wasPinching) {
+      // Rising edge: this pinch just started. Report it as a pick and skip
+      // rotation for this frame — otherwise the pick point itself reads as
+      // a rotation jump.
+      out.pinchStarted = mid
+    } else if (mem.lastPinchMid) {
       out.dYaw = (mid.x - mem.lastPinchMid.x) * Math.PI * 3
       out.dPitch = (mid.y - mem.lastPinchMid.y) * Math.PI * 3
     }
+    out.pinchActive = true
     mem.lastPinchMid = mid
+    mem.wasPinching = true
     out.mode = 'rotate'
-    out.hint = 'Pinching — move your hand to rotate'
     return out
   }
   mem.lastPinchMid = null
-
-  if (hands.length > 0) {
-    const h = hands[0]
-    out.anchor = { x: h.palm.x, y: h.palm.y }
-    out.mode = 'follow'
-    out.hint = 'Pinch to rotate · use two pinched hands to resize'
-    return out
-  }
+  mem.wasPinching = false
 
   return out
 }

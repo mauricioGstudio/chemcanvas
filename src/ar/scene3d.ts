@@ -3,17 +3,15 @@ import { cpkColor, vdwRadius } from '../model/elements'
 import type { Atom3D, Conformer } from '../chem/conformer'
 
 /**
- * WebGL molecule scene.
+ * WebGL scene holding every molecule from the canvas at once, each as its
+ * own rigid group laid out left to right. Groups can be manipulated
+ * independently — rotated, resized, pulled closer — while the rest of the
+ * layout stays put, which is what makes "pinch one to focus it" mean
+ * anything: there has to be more than one thing sitting there to pick from.
  *
- * This replaces an earlier 2D-canvas painter's-algorithm renderer, which
- * could not actually look three-dimensional: it had no perspective divide
- * (so near and far atoms were the same size), its sphere highlight was a
- * fixed gradient that stayed top-left however you turned the molecule, and
- * overlapping sticks and spheres sorted wrongly at the seams.
- *
- * Here atoms and bonds are real geometry lit by real lights, drawn through a
- * perspective camera with a depth buffer, so rotation reads as rotation and
- * the thing in front actually occludes the thing behind.
+ * Real geometry lit by real lights through a perspective camera with a
+ * depth buffer, rather than a flat 2D painter's-algorithm sketch: rotation
+ * reads as rotation, and the thing in front actually occludes what's behind.
  */
 
 export type DisplayMode = 'ball-stick' | 'spacefill' | 'wireframe'
@@ -24,6 +22,21 @@ export interface SceneOptions {
   showLabels: boolean
 }
 
+export interface SceneEntry {
+  id: string
+  conformer: Conformer
+}
+
+export interface ScenePick {
+  moleculeId: string
+  atom: Atom3D
+  index: number
+}
+
+const GAP = 3 // Å between molecule bounding spheres in the layout row
+const DIM_OPACITY = 0.28
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
 /** Radius used for an atom in a given display mode, in Ångström. */
 function atomRadius(el: string, mode: DisplayMode): number {
   if (mode === 'spacefill') return vdwRadius(el)
@@ -31,30 +44,35 @@ function atomRadius(el: string, mode: DisplayMode): number {
   return el === 'H' ? 0.23 : 0.30 + (vdwRadius(el) - 1.5) * 0.10
 }
 
-export interface PickResult {
-  atom: Atom3D
-  /** Index into conformer.atoms. */
-  index: number
+interface Instance {
+  id: string
+  conformer: Conformer
+  /** Positioned at the layout offset; local transform is what focus manipulates. */
+  group: THREE.Group
+  atomMat: THREE.MeshStandardMaterial
+  bondMat: THREE.MeshStandardMaterial | null
+  atomMesh: THREE.InstancedMesh
+  bondMesh: THREE.InstancedMesh | null
+  labelSprites: THREE.Sprite[]
+  visibleAtoms: { atom: Atom3D; index: number }[]
 }
 
 export class MoleculeScene {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
   readonly camera: THREE.PerspectiveCamera
-  /** Everything that rotates together. */
+  /** Whole-scene group — rotated only when nothing is focused. */
   readonly root: THREE.Group
 
-  private conformer: Conformer
+  private entries: SceneEntry[]
   private opts: SceneOptions
-  private atomMesh: THREE.InstancedMesh | null = null
-  private bondMesh: THREE.InstancedMesh | null = null
-  private labelSprites: THREE.Sprite[] = []
-  private visibleAtoms: { atom: Atom3D; index: number }[] = []
+  private instances = new Map<string, Instance>()
   private ground: THREE.Mesh | null = null
   private disposables: { dispose: () => void }[] = []
+  private overallRadius = 1
 
-  constructor(canvas: HTMLCanvasElement, conformer: Conformer, opts: SceneOptions) {
-    this.conformer = conformer
+  constructor(canvas: HTMLCanvasElement, entries: SceneEntry[], opts: SceneOptions) {
+    this.entries = entries
     this.opts = opts
 
     this.renderer = new THREE.WebGLRenderer({
@@ -82,7 +100,7 @@ export class MoleculeScene {
     key.castShadow = true
     key.shadow.mapSize.set(1024, 1024)
     key.shadow.camera.near = 0.5
-    key.shadow.camera.far = 120
+    key.shadow.camera.far = 200
     this.scene.add(key)
 
     const fill = new THREE.DirectionalLight(0x9fb6ff, 0.7)
@@ -95,31 +113,78 @@ export class MoleculeScene {
     this.build()
   }
 
-  /** Rebuild all geometry (after a mode or conformer change). */
+  /** Rebuild every molecule group, preserving each one's current transform. */
   private build() {
-    this.teardownGeometry()
+    const saved = new Map<string, { rx: number; ry: number; scale: number; z: number }>()
+    for (const [id, inst] of this.instances) {
+      saved.set(id, {
+        rx: inst.group.rotation.x,
+        ry: inst.group.rotation.y,
+        scale: inst.group.scale.x,
+        z: inst.group.position.z,
+      })
+    }
+    this.teardownAll()
 
+    // Left-to-right row layout, each molecule's own bounding sphere used so
+    // nothing overlaps regardless of size.
+    let cursor = 0
+    const xFor: number[] = []
+    for (const e of this.entries) {
+      cursor += e.conformer.radius
+      xFor.push(cursor)
+      cursor += e.conformer.radius + GAP
+    }
+    const rowWidth = Math.max(0, cursor - GAP)
+    const center = rowWidth / 2
+
+    let maxExtent = 0
+    this.entries.forEach((entry, i) => {
+      const gx = xFor[i] - center
+      maxExtent = Math.max(maxExtent, Math.abs(gx) + entry.conformer.radius)
+
+      const group = new THREE.Group()
+      group.position.x = gx
+      this.root.add(group)
+      const inst = this.buildInstance(entry, group)
+
+      const s = saved.get(entry.id)
+      if (s) {
+        inst.group.rotation.x = s.rx
+        inst.group.rotation.y = s.ry
+        inst.group.scale.setScalar(s.scale)
+        inst.group.position.z = s.z
+      }
+      this.instances.set(entry.id, inst)
+    })
+    this.overallRadius = Math.max(1, maxExtent)
+
+    this.buildGround()
+  }
+
+  private buildInstance(entry: SceneEntry, group: THREE.Group): Instance {
     const { mode, showHydrogens } = this.opts
-    const atoms = this.conformer.atoms
-    this.visibleAtoms = atoms
+    const conformer = entry.conformer
+    const atoms = conformer.atoms
+    const visibleAtoms = atoms
       .map((atom, index) => ({ atom, index }))
       .filter(({ atom }) => showHydrogens || !atom.implicit)
 
-    // ---- atoms as one instanced sphere mesh ----
     const sphereDetail = atoms.length > 400 ? 1 : atoms.length > 150 ? 2 : 3
     const sphereGeo = new THREE.IcosahedronGeometry(1, sphereDetail)
-    const sphereMat = new THREE.MeshStandardMaterial({
+    const atomMat = new THREE.MeshStandardMaterial({
       roughness: 0.32,
       metalness: 0.02,
+      transparent: true,
     })
-    this.disposables.push(sphereGeo, sphereMat)
+    this.disposables.push(sphereGeo, atomMat)
 
-    const atomMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, this.visibleAtoms.length)
+    const atomMesh = new THREE.InstancedMesh(sphereGeo, atomMat, visibleAtoms.length)
     atomMesh.castShadow = true
     atomMesh.receiveShadow = true
     const m = new THREE.Matrix4()
     const color = new THREE.Color()
-    this.visibleAtoms.forEach(({ atom }, i) => {
+    visibleAtoms.forEach(({ atom }, i) => {
       const r = atomRadius(atom.element, mode)
       m.makeScale(r, r, r)
       m.setPosition(atom.x, atom.y, atom.z)
@@ -128,15 +193,14 @@ export class MoleculeScene {
     })
     atomMesh.instanceMatrix.needsUpdate = true
     if (atomMesh.instanceColor) atomMesh.instanceColor.needsUpdate = true
-    this.root.add(atomMesh)
-    this.atomMesh = atomMesh
+    group.add(atomMesh)
 
-    // ---- bonds as instanced cylinders, split so each half takes its
-    // own atom's color ----
+    let bondMesh: THREE.InstancedMesh | null = null
+    let bondMat: THREE.MeshStandardMaterial | null = null
     if (mode !== 'spacefill') {
       const byId = new Map(atoms.map((a) => [a.id, a]))
       const halves: { from: Atom3D; to: Atom3D; color: string }[] = []
-      for (const b of this.conformer.bonds) {
+      for (const b of conformer.bonds) {
         const a1 = byId.get(b.a1)
         const a2 = byId.get(b.a2)
         if (!a1 || !a2) continue
@@ -156,10 +220,10 @@ export class MoleculeScene {
 
       const radius = mode === 'wireframe' ? 0.045 : 0.105
       const cylGeo = new THREE.CylinderGeometry(radius, radius, 1, 12, 1, true)
-      const cylMat = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.02 })
-      this.disposables.push(cylGeo, cylMat)
+      bondMat = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.02, transparent: true })
+      this.disposables.push(cylGeo, bondMat)
 
-      const bondMesh = new THREE.InstancedMesh(cylGeo, cylMat, halves.length)
+      bondMesh = new THREE.InstancedMesh(cylGeo, bondMat, halves.length)
       bondMesh.castShadow = true
       const up = new THREE.Vector3(0, 1, 0)
       const dir = new THREE.Vector3()
@@ -173,94 +237,99 @@ export class MoleculeScene {
         quat.setFromUnitVectors(up, dir.clone().normalize())
         scaleV.set(1, length, 1)
         m.compose(midPoint, quat, scaleV)
-        bondMesh.setMatrixAt(i, m)
-        bondMesh.setColorAt(i, color.set(h.color))
+        bondMesh!.setMatrixAt(i, m)
+        bondMesh!.setColorAt(i, color.set(h.color))
       })
       bondMesh.instanceMatrix.needsUpdate = true
       if (bondMesh.instanceColor) bondMesh.instanceColor.needsUpdate = true
-      this.root.add(bondMesh)
-      this.bondMesh = bondMesh
+      group.add(bondMesh)
     }
 
-    if (this.opts.showLabels) this.buildLabels()
-    this.buildGround()
-  }
+    const labelSprites: THREE.Sprite[] = []
+    if (this.opts.showLabels) {
+      // Heteroatoms only, matching skeletal-structure convention: carbon is
+      // implied by the vertex, and labelling every C is unreadable on a
+      // steroid-sized structure.
+      const labelled = visibleAtoms.filter(({ atom }) => atom.element !== 'H' && atom.element !== 'C')
+      if (labelled.length <= 120) {
+        for (const { atom } of labelled) {
+          const canvas = document.createElement('canvas')
+          canvas.width = 128
+          canvas.height = 128
+          const ctx = canvas.getContext('2d')!
+          ctx.font = 'bold 76px Inter, system-ui, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.lineWidth = 10
+          ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+          ctx.strokeText(atom.element, 64, 68)
+          ctx.fillStyle = '#ffffff'
+          ctx.fillText(atom.element, 64, 68)
 
-  /** Element symbols as camera-facing sprites. */
-  private buildLabels() {
-    // Heteroatoms only, matching how skeletal structures are drawn and what
-    // the 2D canvas shows by default: carbon is implied by the vertex, and
-    // labelling every C turns a steroid into an unreadable pile of letters.
-    const labelled = this.visibleAtoms.filter(
-      ({ atom }) => atom.element !== 'H' && atom.element !== 'C',
-    )
-    if (labelled.length > 120) return // too dense to read anyway
-    for (const { atom } of labelled) {
-      const canvas = document.createElement('canvas')
-      canvas.width = 128
-      canvas.height = 128
-      const ctx = canvas.getContext('2d')!
-      ctx.font = 'bold 76px Inter, system-ui, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.lineWidth = 10
-      ctx.strokeStyle = 'rgba(0,0,0,0.85)'
-      ctx.strokeText(atom.element, 64, 68)
-      ctx.fillStyle = '#ffffff'
-      ctx.fillText(atom.element, 64, 68)
+          const tex = new THREE.CanvasTexture(canvas)
+          tex.colorSpace = THREE.SRGBColorSpace
+          const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })
+          const sprite = new THREE.Sprite(mat)
+          const r = atomRadius(atom.element, mode)
+          sprite.scale.setScalar(Math.max(0.9, r * 2.1))
+          sprite.position.set(atom.x, atom.y, atom.z)
+          sprite.renderOrder = 10
+          group.add(sprite)
+          labelSprites.push(sprite)
+          this.disposables.push(tex, mat)
+        }
+      }
+    }
 
-      const tex = new THREE.CanvasTexture(canvas)
-      tex.colorSpace = THREE.SRGBColorSpace
-      const mat = new THREE.SpriteMaterial({
-        map: tex,
-        depthTest: false,
-        transparent: true,
-      })
-      const sprite = new THREE.Sprite(mat)
-      const r = atomRadius(atom.element, this.opts.mode)
-      sprite.scale.setScalar(Math.max(0.9, r * 2.1))
-      sprite.position.set(atom.x, atom.y, atom.z)
-      sprite.renderOrder = 10
-      this.root.add(sprite)
-      this.labelSprites.push(sprite)
-      this.disposables.push(tex, mat)
+    return {
+      id: entry.id,
+      conformer,
+      group,
+      atomMat,
+      bondMat,
+      atomMesh,
+      bondMesh,
+      labelSprites,
+      visibleAtoms,
     }
   }
 
   /**
-   * A soft shadow catcher under the molecule. Contact shadow is one of the
-   * strongest depth cues there is — it's what makes the model read as
+   * A soft shadow catcher under the whole row. Contact shadow is one of the
+   * strongest depth cues there is — it's what makes the layout read as
    * sitting in the room rather than pasted onto it.
    */
   private buildGround() {
-    const geo = new THREE.PlaneGeometry(400, 400)
+    const geo = new THREE.PlaneGeometry(600, 600)
     const mat = new THREE.ShadowMaterial({ opacity: 0.32 })
     const plane = new THREE.Mesh(geo, mat)
     plane.rotation.x = -Math.PI / 2
-    plane.position.y = -this.conformer.radius * 1.6
+    plane.position.y = -this.overallRadius * 1.6
     plane.receiveShadow = true
     this.scene.add(plane)
     this.ground = plane
     this.disposables.push(geo, mat)
   }
 
-  private teardownGeometry() {
-    for (const obj of [this.atomMesh, this.bondMesh]) {
-      if (obj) {
-        this.root.remove(obj)
-        obj.dispose()
-      }
+  private teardownAll() {
+    for (const inst of this.instances.values()) {
+      this.root.remove(inst.group)
+      inst.atomMesh.dispose()
+      inst.bondMesh?.dispose()
     }
-    this.atomMesh = null
-    this.bondMesh = null
-    for (const s of this.labelSprites) this.root.remove(s)
-    this.labelSprites = []
+    this.instances.clear()
     if (this.ground) {
       this.scene.remove(this.ground)
       this.ground = null
     }
     for (const d of this.disposables) d.dispose()
     this.disposables = []
+  }
+
+  /** Swap in updated conformers (e.g. a precise-3D upgrade) without losing focus/transform. */
+  setEntries(entries: SceneEntry[]) {
+    this.entries = entries
+    this.build()
   }
 
   setOptions(opts: SceneOptions) {
@@ -272,11 +341,6 @@ export class MoleculeScene {
     if (changed) this.build()
   }
 
-  setConformer(conformer: Conformer) {
-    this.conformer = conformer
-    this.build()
-  }
-
   resize(width: number, height: number, dpr: number) {
     this.renderer.setPixelRatio(dpr)
     this.renderer.setSize(width, height, false)
@@ -284,28 +348,81 @@ export class MoleculeScene {
     this.camera.updateProjectionMatrix()
   }
 
-  /** Distance that frames the whole molecule. */
+  /** Camera distance that frames the whole laid-out row. */
   fitDistance(): number {
     const fov = (this.camera.fov * Math.PI) / 180
-    return (this.conformer.radius * 1.6) / Math.tan(fov / 2)
+    return (this.overallRadius * 1.6) / Math.tan(fov / 2)
   }
 
-  /** Ray-pick an atom from normalized device coordinates. */
-  pick(ndcX: number, ndcY: number): PickResult | null {
-    if (!this.atomMesh) return null
+  /** Ray-pick an atom from normalized device coordinates, across every molecule. */
+  pick(ndcX: number, ndcY: number): ScenePick | null {
+    if (this.instances.size === 0) return null
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
-    const hits = raycaster.intersectObject(this.atomMesh, false)
+    const meshes = [...this.instances.values()].map((i) => i.atomMesh)
+    const hits = raycaster.intersectObjects(meshes, false)
     if (hits.length === 0) return null
+    const hitMesh = hits[0].object
     const instanceId = hits[0].instanceId
     if (instanceId === undefined) return null
-    const entry = this.visibleAtoms[instanceId]
-    return entry ? { atom: entry.atom, index: entry.index } : null
+    for (const inst of this.instances.values()) {
+      if (inst.atomMesh === hitMesh) {
+        const entry = inst.visibleAtoms[instanceId]
+        return entry ? { moleculeId: inst.id, atom: entry.atom, index: entry.index } : null
+      }
+    }
+    return null
   }
 
-  /** World position of an atom, accounting for the current rotation. */
-  worldPositionOf(atom: Atom3D): THREE.Vector3 {
-    return this.root.localToWorld(new THREE.Vector3(atom.x, atom.y, atom.z))
+  /** Dim every molecule except the focused one; pass null to bring all back to full opacity. */
+  setFocusHighlight(focusedId: string | null) {
+    for (const [id, inst] of this.instances) {
+      const on = focusedId === null || id === focusedId
+      const op = on ? 1 : DIM_OPACITY
+      inst.atomMat.opacity = op
+      if (inst.bondMat) inst.bondMat.opacity = op
+      for (const s of inst.labelSprites) (s.material as THREE.SpriteMaterial).opacity = op
+    }
+  }
+
+  /** Rotate one molecule about its own center, incrementally. */
+  rotateInstance(id: string, dYaw: number, dPitch: number) {
+    const inst = this.instances.get(id)
+    if (!inst) return
+    inst.group.rotation.y += dYaw
+    inst.group.rotation.x = clamp(inst.group.rotation.x + dPitch, -1.6, 1.6)
+  }
+
+  /** Scale one molecule up or down, multiplicatively, clamped to a sane range. */
+  scaleInstance(id: string, factor: number) {
+    const inst = this.instances.get(id)
+    if (!inst) return
+    const next = clamp(inst.group.scale.x * factor, 0.3, 4)
+    inst.group.scale.setScalar(next)
+  }
+
+  /** Nudge one molecule toward (>1) or away from (<1) the camera. */
+  depthInstance(id: string, factor: number) {
+    const inst = this.instances.get(id)
+    if (!inst) return
+    const step = (factor - 1) * 60
+    inst.group.position.z = clamp(inst.group.position.z + step, -40, 60)
+  }
+
+  /** Reset every molecule's manipulation transform back to how it laid out. */
+  resetAllTransforms() {
+    for (const inst of this.instances.values()) {
+      inst.group.rotation.set(0, 0, 0)
+      inst.group.scale.setScalar(1)
+      inst.group.position.z = 0
+    }
+  }
+
+  /** World position of an atom belonging to a specific molecule. */
+  worldPositionOf(moleculeId: string, atom: Atom3D): THREE.Vector3 {
+    const inst = this.instances.get(moleculeId)
+    if (!inst) return new THREE.Vector3()
+    return inst.group.localToWorld(new THREE.Vector3(atom.x, atom.y, atom.z))
   }
 
   /** Project a world point to screen pixels. */
@@ -318,8 +435,23 @@ export class MoleculeScene {
     this.renderer.render(this.scene, this.camera)
   }
 
+  /** Snapshot of every molecule's current layout and manipulation transform. */
+  debugInstances() {
+    return [...this.instances.entries()].map(([id, inst]) => ({
+      id,
+      x: inst.group.position.x,
+      y: inst.group.position.y,
+      z: inst.group.position.z,
+      rotX: inst.group.rotation.x,
+      rotY: inst.group.rotation.y,
+      scale: inst.group.scale.x,
+      radius: inst.conformer.radius,
+      opacity: inst.atomMat.opacity,
+    }))
+  }
+
   dispose() {
-    this.teardownGeometry()
+    this.teardownAll()
     this.renderer.dispose()
   }
 }

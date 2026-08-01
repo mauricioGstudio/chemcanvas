@@ -393,7 +393,7 @@
     <span class="line"><span>editing. <em class="accent">Free.</em></span></span>
     <span class="line"><span>Always.</span></span>
   </h1>
-  <p class="hero-sub">ChemCanvas turns "caffeine" into an editable structure the moment you press Enter. Bonds snap to real geometry, formulas update while you draw, and <a href="#ar" style="color: var(--accent); border-bottom: 1px solid var(--accent)">any molecule can be lifted off the page into 3D</a> and held in your hand.</p>
+  <p class="hero-sub">ChemCanvas turns "caffeine" into an editable structure the moment you press Enter. Bonds snap to real geometry, formulas update while you draw, and <a href="#ar" style="color: var(--accent); border-bottom: 1px solid var(--accent)">the whole canvas can be lifted off the page into 3D</a> and held in your hands.</p>
   <div class="hero-cta">
     <a class="btn" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download for Windows</a>
     <span class="cta-note">98 MB &middot; no account &middot; Windows 10 and 11</span>
@@ -471,11 +471,11 @@
 <section id="ar">
   <div class="split">
     <div class="txt reveal">
-      <p class="label">New in 2.1</p>
-      <h2>Hold the molecule in your hand</h2>
-      <p>Select any structure and press <b>View in AR</b>. ChemCanvas works out its 3D shape, opens your camera, and stands the molecule up in the room in front of you — spheres for atoms, real depth, real geometry.</p>
-      <p>Then use your hands. Open your palm and the molecule settles above it. Pinch and move to turn it over. Pinch with both hands and pull them apart to make it bigger. Reach toward the camera and it comes closer. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
-      <p>It's built to be worked in, not just watched: tap any atom to read its element, mass and charge, measure a bond length or an angle by tapping two or three atoms, and switch between the structures on your canvas without leaving.</p>
+      <p class="label">New in 2.2</p>
+      <h2>Put the whole canvas in the room</h2>
+      <p>Press <b>AR</b> and everything you've drawn comes with you — not one structure at a time. ChemCanvas works out each shape, opens your camera, and stands them all up in a row in front of you, spheres for atoms, real depth, real geometry. A progress bar counts the structures as they're built, so you're never staring at an empty screen wondering.</p>
+      <p>Pinch a molecule to make it the one you're working on. The rest fade back, and it's yours: move your hand to turn it over, pinch with both hands and pull them apart to make it bigger, reach toward the camera to bring it closer. Pinch a different one to switch. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
+      <p>It's built to be worked in, not just watched: pick any atom to read its element, mass and charge, or measure a bond length or an angle by picking two or three atoms on the same structure.</p>
       <p class="note">Ball-and-stick, space-filling, or wireframe · save a photo of what you see · works with a mouse too if you'd rather drag</p>
     </div>
     <div class="reveal d1">
@@ -513,7 +513,7 @@
   <div class="dl reveal">
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 2.1.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
+    <div class="meta"><span>Version 2.2.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
     <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
@@ -529,9 +529,56 @@
   <div class="versions">
     <div class="version reveal">
       <div class="version-head">
-        <span class="version-tag">v2.1.0</span>
+        <span class="version-tag">v2.2.0</span>
         <span class="version-date">August 1, 2026</span>
         <span class="badge">Latest</span>
+      </div>
+      <p class="version-note">The whole canvas goes to AR at once, and you choose what to handle.</p>
+
+      <div class="version-groups">
+        <div>
+          <h4>Whole-canvas AR</h4>
+          <ul>
+            <li>One <b>AR</b> button in the toolbar — no selecting first</li>
+            <li>Every structure comes along, laid out in a row in the order you drew them</li>
+            <li>The camera frames all of them, however many there are</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Pinch to focus</h4>
+          <ul>
+            <li>Molecules no longer follow your hand — pinch one to pick it</li>
+            <li>The focused structure stays lit while the rest fade back</li>
+            <li>Rotate, resize, and depth apply only to the one you picked</li>
+            <li>Pinch another to switch, or press Escape to let go</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Loading bar</h4>
+          <ul>
+            <li>A real progress bar counts structures as their shapes are built</li>
+            <li>The scene appears complete instead of one molecule at a time</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Fixes</h4>
+          <ul>
+            <li>Slow rotation drags no longer deselect the molecule when you let go</li>
+            <li>Measurements stay within one structure, restarting if you pick another</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-links">
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.0/ChemCanvas-Setup.exe" download>Download v2.2.0</a>
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+      </div>
+    </div>
+
+    <div class="version reveal">
+      <div class="version-head">
+        <span class="version-tag">v2.1.0</span>
+        <span class="version-date">August 1, 2026</span>
       </div>
       <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
 
@@ -590,7 +637,7 @@
         <div>
           <h4>AR viewer</h4>
           <ul>
-            <li>Select a structure and press <b>View in AR</b> to see it in 3D over your camera</li>
+            <li>Press <b>AR</b> to bring every structure on the canvas into 3D over your camera</li>
             <li>Ball-and-stick, space-filling, and wireframe modes</li>
             <li>Save a photo of the AR scene</li>
           </ul>
@@ -598,8 +645,8 @@
         <div>
           <h4>Hand control</h4>
           <ul>
-            <li>Open palm places the molecule above your hand</li>
-            <li>Pinch and move to rotate</li>
+            <li>Pinch a molecule to make it the focus — the others fade back</li>
+            <li>Move your pinched hand to rotate it</li>
             <li>Two pinched hands to resize</li>
             <li>On-screen skeleton shows what the camera is tracking</li>
           </ul>
@@ -733,7 +780,7 @@
       <li>Runs entirely on your computer. Drawings autosave to your own machine and reopen from there. Nothing is uploaded, synced, or backed up anywhere.</li>
       <li>Contains no telemetry, no crash reporting, no usage statistics, no update pinging, and no account system.</li>
       <li><b>Name lookup.</b> When you type a chemical name into search, or ask ChemCanvas to name a structure you drew, that text or structure is sent over HTTPS to PubChem (U.S. National Institutes of Health) or OPSIN (University of Cambridge) to resolve it.</li>
-      <li><b>Precise 3D in the AR viewer.</b> When you open AR, the structure is sent as a SMILES string to NCI CACTUS (U.S. National Cancer Institute) to fetch properly embedded 3D coordinates, which are markedly more accurate than the shape ChemCanvas can derive on its own. The AR viewer works without this — it renders a locally-built shape first, and the precise one only replaces it if it arrives. You can turn it off with the <b>Precise 3D</b> button inside the AR viewer, and the viewer tells you which geometry you're looking at.</li>
+      <li><b>Precise 3D in the AR viewer.</b> When you open AR, every structure on your canvas — not just one you picked — is sent as a SMILES string to NCI CACTUS (U.S. National Cancer Institute) to fetch properly embedded 3D coordinates, which are markedly more accurate than the shape ChemCanvas can derive on its own. The AR viewer works without this — it renders locally-built shapes first, and precise ones only replace them as they arrive. You can turn it off with the <b>Precise 3D</b> button inside the AR viewer, and the viewer tells you which geometry you're looking at.</li>
       <li>Both of the above are only triggered by an action you take. Like any web request, those services can see your IP address, and their own policies govern what they do with what they receive. If you don't use name lookup and turn off precise 3D, the app makes no network requests at all and works fully offline.</li>
       <li>If you work on unpublished structures, note that using those features means the structure reaches a third party. That's the reason each one is optional and labeled rather than silent.</li>
       <li>Discards any cookies those lookup services attempt to set. Nothing persists between requests.</li>

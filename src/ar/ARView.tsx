@@ -12,9 +12,10 @@ import {
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ELEMENTS } from '../model/elements'
+import type { Atom3D } from '../chem/conformer'
 import { precise3DEnabled, setPrecise3D } from '../chem/conformer3d'
-import { arMolecules, setARMolecule, useARStore } from '../state/ar'
+import { ELEMENTS } from '../model/elements'
+import { useARStore } from '../state/ar'
 import { toast } from '../ui/Toasts'
 import {
   createGestureMemory,
@@ -25,18 +26,18 @@ import {
   interpretGestures,
   type HandsFrame,
 } from './hands'
-import { MoleculeScene, type DisplayMode } from './scene3d'
-import type { Atom3D } from '../chem/conformer'
+import { MoleculeScene, type DisplayMode, type ScenePick } from './scene3d'
 
 /**
- * Fullscreen AR viewer: a real WebGL molecule standing in the camera feed,
- * driven by hand gestures, with the inspection tools from the 2D canvas
- * carried over so it works as a place to explore a structure rather than
- * just look at one.
+ * Fullscreen AR viewer: every structure from the canvas, laid out side by
+ * side in real WebGL, over the live camera. Nothing moves on its own —
+ * pinching (or clicking) a molecule picks it as the focus, and only the
+ * focused one responds to rotate/resize/depth gestures until you pick a
+ * different one or hit Reset.
  *
  * Degradation is layered, because cameras and models fail for ordinary
- * reasons: camera + hands → gestures; camera only → drag; neither → drag on
- * a plain backdrop. The molecule is always usable.
+ * reasons: camera + hands → gestures; camera only → click and drag; neither
+ * → drag on a plain backdrop. The scene is always usable.
  */
 
 type TrackState = 'off' | 'loading' | 'on' | 'failed'
@@ -50,18 +51,23 @@ const MODE_LABEL: Record<DisplayMode, string> = {
 interface ViewState {
   yaw: number
   pitch: number
-  /** Camera distance in Ångström — this is the depth axis. */
+  /** Camera distance in Ångström — whole-scene zoom, used when nothing is focused. */
   distance: number
-  /** Screen-space offset of the molecule, 0..1 of viewport. */
-  anchorX: number
-  anchorY: number
+}
+
+interface Pick {
+  moleculeId: string
+  atom: Atom3D
 }
 
 export default function ARView() {
   const open = useARStore((s) => s.open)
   const building = useARStore((s) => s.building)
-  const conformer = useARStore((s) => s.conformer)
-  const title = useARStore((s) => s.title)
+  const buildDone = useARStore((s) => s.buildDone)
+  const buildTotal = useARStore((s) => s.buildTotal)
+  const entries = useARStore((s) => s.entries)
+  const focusedId = useARStore((s) => s.focusedId)
+  const setFocus = useARStore((s) => s.setFocus)
   const close = useARStore((s) => s.close)
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -72,9 +78,13 @@ export default function ARView() {
   const rafRef = useRef(0)
   const gestureMem = useRef(createGestureMemory())
   const handsRef = useRef<HandsFrame>([])
-  const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const dragRef = useRef<{ x: number; y: number; startX: number; startY: number; moved: boolean } | null>(
+    null,
+  )
   const spinRef = useRef(true)
-  const view = useRef<ViewState>({ yaw: 0.6, pitch: 0.3, distance: 30, anchorX: 0.5, anchorY: 0.5 })
+  const focusedIdRef = useRef<string | null>(null)
+  const measuringRef = useRef(false)
+  const view = useRef<ViewState>({ yaw: 0.6, pitch: 0.3, distance: 30 })
 
   const [cameraOn, setCameraOn] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -85,18 +95,18 @@ export default function ARView() {
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [autoSpin, setAutoSpin] = useState(true)
   const [hint, setHint] = useState('Starting camera…')
-  const [selected, setSelected] = useState<Atom3D | null>(null)
+  const [selected, setSelected] = useState<Pick | null>(null)
   const [measuring, setMeasuring] = useState(false)
-  const [measurePicks, setMeasurePicks] = useState<Atom3D[]>([])
+  const [measurePicks, setMeasurePicks] = useState<Pick[]>([])
   const [precise3D, setPrecise3DState] = useState(precise3DEnabled)
-  const molecules = arMolecules()
-  const precise = useARStore((s) => s.precise)
 
   spinRef.current = autoSpin
-  const measuringRef = useRef(false)
+  focusedIdRef.current = focusedId
   measuringRef.current = measuring
 
-  // ---- camera -----------------------------------------------------------
+  const focusedEntry = entries.find((e) => e.id === focusedId) ?? null
+
+  // ---- camera -------------------------------------------------------------
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -107,18 +117,18 @@ export default function ARView() {
         await initHandTracking()
         if (cancelled) return
         setTrack('on')
-        setHint('Show a hand to place the molecule')
+        setHint('Pinch a molecule to select it')
       } catch {
         if (cancelled) return
         setTrack('failed')
-        setHint('Hand tracking unavailable — drag to rotate')
+        setHint('Hand tracking unavailable — click and drag instead')
       }
     }
 
     const start = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraError('This browser has no camera API.')
-        setHint('Drag to rotate · scroll to move closer')
+        setHint('Click a molecule to select it, then drag')
         return
       }
       try {
@@ -142,12 +152,12 @@ export default function ARView() {
         const name = (err as Error)?.name
         setCameraError(
           name === 'NotAllowedError'
-            ? 'Camera permission denied — drag to rotate instead.'
+            ? 'Camera permission denied — click a molecule and drag instead.'
             : name === 'NotFoundError'
-              ? 'No camera found — drag to rotate instead.'
-              : 'Could not start the camera — drag to rotate instead.',
+              ? 'No camera found — click a molecule and drag instead.'
+              : 'Could not start the camera — click a molecule and drag instead.',
         )
-        setHint('Drag to rotate · scroll to move closer')
+        setHint('Click a molecule to select it, then drag')
       }
     }
 
@@ -163,35 +173,45 @@ export default function ARView() {
     }
   }, [open])
 
-  // ---- scene lifecycle --------------------------------------------------
+  // ---- scene construction (once entries first arrive) ----------------------
+  const hasEntries = entries.length > 0
   useEffect(() => {
-    if (!open || !conformer || !canvasRef.current) return
-    const scene = new MoleculeScene(canvasRef.current, conformer, {
-      mode,
-      showHydrogens,
-      showLabels,
-    })
+    if (!open || !hasEntries || !canvasRef.current || sceneRef.current) return
+    const scene = new MoleculeScene(
+      canvasRef.current,
+      entries.map((e) => ({ id: e.id, conformer: e.conformer })),
+      { mode, showHydrogens, showLabels },
+    )
     sceneRef.current = scene
     view.current.distance = scene.fitDistance()
-    view.current.anchorX = 0.5
-    view.current.anchorY = 0.5
-    setSelected(null)
-    setMeasurePicks([])
+    // Dev-only: expose for debugging/self-tests from the browser console.
+    if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__arScene = scene
     return () => {
       scene.dispose()
       sceneRef.current = null
+      if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__arScene = null
     }
-    // Rebuilding on mode/label/H changes is handled by setOptions below.
+    // Intentionally only reacts to open/hasEntries — mode etc. are pushed
+    // via setOptions below, and per-entry conformer swaps via setEntries.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, conformer])
+  }, [open, hasEntries])
+
+  // Sync geometry updates (precise-3D upgrades) into the live scene.
+  useEffect(() => {
+    sceneRef.current?.setEntries(entries.map((e) => ({ id: e.id, conformer: e.conformer })))
+  }, [entries])
 
   useEffect(() => {
     sceneRef.current?.setOptions({ mode, showHydrogens, showLabels })
   }, [mode, showHydrogens, showLabels])
 
-  // ---- render loop ------------------------------------------------------
   useEffect(() => {
-    if (!open || !conformer) return
+    sceneRef.current?.setFocusHighlight(focusedId)
+  }, [focusedId])
+
+  // ---- render loop ----------------------------------------------------------
+  useEffect(() => {
+    if (!open || !hasEntries) return
     const canvas = canvasRef.current
     const overlay = overlayRef.current
     if (!canvas || !overlay) return
@@ -210,45 +230,52 @@ export default function ARView() {
         overlay.height = h * dpr
       }
 
-      // Hand tracking drives rotation, depth and position.
       const video = videoRef.current
       if (track === 'on' && video && video.readyState >= 2) {
         const hands = detectHands(video, t)
         handsRef.current = hands
         const g = interpretGestures(hands, gestureMem.current)
-        setHintThrottled(g.hint)
-        if (g.anchor) {
-          view.current.anchorX += (g.anchor.x - view.current.anchorX) * 0.2
-          view.current.anchorY += (g.anchor.y - 0.13 - view.current.anchorY) * 0.2
+        const focus = focusedIdRef.current
+
+        if (g.pinchStarted) {
+          const ndcX = g.pinchStarted.x * 2 - 1
+          const ndcY = -(g.pinchStarted.y * 2 - 1)
+          applyPick(scene.pick(ndcX, ndcY))
         }
-        view.current.yaw += g.dYaw
-        view.current.pitch = clamp(view.current.pitch + g.dPitch, -1.45, 1.45)
-        if (g.scaleFactor !== 1) {
-          view.current.distance = clamp(view.current.distance / g.scaleFactor, 4, 400)
+
+        if (g.mode === 'rotate' && g.pinchActive && focus) {
+          scene.rotateInstance(focus, g.dYaw, g.dPitch)
         }
-        // Depth: reach toward the camera and the molecule comes with you.
+        if (g.mode === 'scale' && g.scaleFactor !== 1) {
+          if (focus) scene.scaleInstance(focus, g.scaleFactor)
+          else view.current.distance = clamp(view.current.distance / g.scaleFactor, 4, 500)
+        }
         if (g.depthFactor !== 1) {
-          view.current.distance = clamp(view.current.distance * g.depthFactor, 4, 400)
+          if (focus) scene.depthInstance(focus, g.depthFactor)
+          else view.current.distance = clamp(view.current.distance * g.depthFactor, 4, 500)
         }
+
+        setHintThrottled(
+          focus
+            ? g.mode === 'scale'
+              ? 'Move hands apart or together to resize'
+              : 'Move your hand to rotate — pinch elsewhere to switch'
+            : 'Pinch a molecule to select it',
+        )
       }
 
-      if (spinRef.current && !dragRef.current) view.current.yaw += 0.006
+      const focus = focusedIdRef.current
+      if (spinRef.current && !dragRef.current) {
+        if (focus) scene.rotateInstance(focus, 0.01, 0)
+        else view.current.yaw += 0.006
+      }
 
-      // Apply view state to the scene.
+      // Whole-scene orbit only applies when nothing is focused — a focused
+      // molecule is manipulated on its own, in place.
       scene.root.rotation.set(view.current.pitch, view.current.yaw, 0)
       const cam = scene.camera
       cam.position.set(0, 0, view.current.distance)
       cam.lookAt(0, 0, 0)
-      // Shift the projection so the molecule sits at the anchor point
-      // without distorting the perspective.
-      cam.setViewOffset(
-        w,
-        h,
-        (0.5 - view.current.anchorX) * w,
-        (0.5 - view.current.anchorY) * h,
-        w,
-        h,
-      )
       cam.updateProjectionMatrix()
       scene.render()
 
@@ -257,7 +284,25 @@ export default function ARView() {
 
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [open, conformer, track, showSkeleton, measurePicks, selected])
+  }, [open, hasEntries, track, showSkeleton, measurePicks, selected])
+
+  /** A pick from either hand-pinch or mouse click: focus it, or add it to a measurement. */
+  const applyPick = useCallback((hit: ScenePick | null) => {
+    if (measuringRef.current) {
+      if (!hit) return
+      setMeasurePicks((prev) => {
+        const p = { moleculeId: hit.moleculeId, atom: hit.atom }
+        // Cross-molecule measurement isn't chemically meaningful — starting
+        // a pick on a different structure restarts the chain there instead.
+        if (prev.length > 0 && prev[0].moleculeId !== hit.moleculeId) return [p]
+        return prev.length >= 3 ? [p] : [...prev, p]
+      })
+      return
+    }
+    const newFocus = hit ? hit.moleculeId : null
+    if (newFocus !== focusedIdRef.current) useARStore.getState().setFocus(newFocus)
+    setSelected(hit ? { moleculeId: hit.moleculeId, atom: hit.atom } : null)
+  }, [])
 
   // Avoid a setState every frame; the hint only changes on gesture changes.
   const lastHint = useRef('')
@@ -268,7 +313,7 @@ export default function ARView() {
     }
   }
 
-  // ---- keyboard ---------------------------------------------------------
+  // ---- keyboard -------------------------------------------------------------
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -276,28 +321,29 @@ export default function ARView() {
         if (measuringRef.current) {
           setMeasuring(false)
           setMeasurePicks([])
-        } else close()
+        } else if (focusedIdRef.current) {
+          setFocus(null)
+          setSelected(null)
+        } else {
+          close()
+        }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, close])
+  }, [open, close, setFocus])
 
   const resetView = useCallback(() => {
     const scene = sceneRef.current
     if (!scene) return
-    view.current = {
-      yaw: 0.6,
-      pitch: 0.3,
-      distance: scene.fitDistance(),
-      anchorX: 0.5,
-      anchorY: 0.5,
-    }
+    scene.resetAllTransforms()
+    view.current = { yaw: 0.6, pitch: 0.3, distance: scene.fitDistance() }
+    setFocus(null)
     setSelected(null)
     setMeasurePicks([])
-  }, [])
+  }, [setFocus])
 
-  /** Save a still of the camera feed plus the molecule. */
+  /** Save a still of the camera feed plus the scene. */
   const capture = useCallback(() => {
     const canvas = canvasRef.current
     const overlay = overlayRef.current
@@ -340,9 +386,9 @@ export default function ARView() {
 
   if (!open) return null
 
-  // ---- pointer input ----------------------------------------------------
+  // ---- pointer input (mouse/touch fallback) ----------------------------------
   const pointerDown = (e: React.PointerEvent) => {
-    dragRef.current = { x: e.clientX, y: e.clientY, moved: false }
+    dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }
     try {
       ;(e.target as Element).setPointerCapture?.(e.pointerId)
     } catch {
@@ -354,38 +400,58 @@ export default function ARView() {
     if (!d) return
     const dx = e.clientX - d.x
     const dy = e.clientY - d.y
-    if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true
-    view.current.yaw += dx * 0.01
-    view.current.pitch = clamp(view.current.pitch + dy * 0.01, -1.45, 1.45)
-    dragRef.current = { x: e.clientX, y: e.clientY, moved: d.moved }
+    // Measured from the press point, not the last move: a slow drag arrives as
+    // many sub-pixel steps, and per-step comparison would never trip the
+    // threshold — so releasing it would fire a pick and drop the focus.
+    const moved =
+      d.moved || Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) > 3
+    const scene = sceneRef.current
+    const focus = focusedIdRef.current
+    if (focus && scene) {
+      scene.rotateInstance(focus, dx * 0.01, dy * 0.01)
+    } else {
+      view.current.yaw += dx * 0.01
+      view.current.pitch = clamp(view.current.pitch + dy * 0.01, -1.6, 1.6)
+    }
+    dragRef.current = { x: e.clientX, y: e.clientY, startX: d.startX, startY: d.startY, moved }
   }
   const pointerUp = (e: React.PointerEvent) => {
     const d = dragRef.current
     dragRef.current = null
     if (!d || d.moved) return
-    // A click without drag is a pick.
+    // A click without drag is a pick, mirroring pinch-to-select.
     const scene = sceneRef.current
     const canvas = canvasRef.current
     if (!scene || !canvas) return
     const rect = canvas.getBoundingClientRect()
     const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1
     const ndcY = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
-    const hit = scene.pick(ndcX, ndcY)
-    if (!hit) {
-      setSelected(null)
-      return
-    }
-    if (measuringRef.current) {
-      setMeasurePicks((prev) => (prev.length >= 3 ? [hit.atom] : [...prev, hit.atom]))
-    } else {
-      setSelected(hit.atom)
-    }
+    applyPick(scene.pick(ndcX, ndcY))
   }
   const onWheel = (e: React.WheelEvent) => {
-    view.current.distance = clamp(view.current.distance * Math.exp(e.deltaY * 0.0012), 4, 400)
+    const scene = sceneRef.current
+    const focus = focusedIdRef.current
+    if (focus && scene) {
+      scene.scaleInstance(focus, Math.exp(-e.deltaY * 0.0015))
+    } else {
+      view.current.distance = clamp(view.current.distance * Math.exp(e.deltaY * 0.0012), 4, 500)
+    }
   }
 
   const measureReadout = describeMeasurement(measurePicks)
+  const totalAtoms = entries.reduce((n, e) => n + e.conformer.atoms.length, 0)
+  const headerTitle = focusedEntry
+    ? focusedEntry.label
+    : entries.length === 1
+      ? entries[0].label
+      : entries.length > 1
+        ? `${entries.length} structures`
+        : ''
+  const headerSub = focusedEntry
+    ? `${focusedEntry.conformer.atoms.length} atoms · ${MODE_LABEL[mode]}`
+    : hasEntries
+      ? `${totalAtoms} atoms total · ${MODE_LABEL[mode]}`
+      : 'Building 3D structures…'
 
   return (
     <div className="fixed inset-0 z-[60] bg-black">
@@ -417,15 +483,11 @@ export default function ARView() {
       {/* top bar */}
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
         <div className="rounded-[10px] bg-black/55 px-3 py-2 backdrop-blur">
-          <div className="text-[15px] font-semibold text-white">{title || 'Molecule'}</div>
-          <div className="text-[12px] text-white/70">
-            {conformer
-              ? `${conformer.atoms.length} atoms · ${MODE_LABEL[mode]}`
-              : 'Building 3D structure…'}
-          </div>
-          {conformer && (
+          <div className="text-[15px] font-semibold text-white">{headerTitle || 'ChemCanvas AR'}</div>
+          <div className="text-[12px] text-white/70">{headerSub}</div>
+          {focusedEntry && (
             <div className="text-[11px] text-white/45">
-              {precise ? 'measured 3D geometry' : 'idealized geometry'}
+              {focusedEntry.precise ? 'measured 3D geometry' : 'idealized geometry'}
             </div>
           )}
         </div>
@@ -439,30 +501,32 @@ export default function ARView() {
         </button>
       </div>
 
-      {/* status */}
-      <div className="pointer-events-none absolute inset-x-0 top-[76px] flex justify-center px-4">
-        <div className="flex items-center gap-2 rounded-full bg-black/55 px-3.5 py-1.5 text-[13px] text-white/90 backdrop-blur">
-          {(track === 'loading' || building) && <Loader2 size={13} className="animate-spin" />}
-          {track === 'on' && !building && <Hand size={13} />}
-          <span>{building ? 'Working out the 3D shape…' : (cameraError ?? hint)}</span>
+      {/* building progress */}
+      {building && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-[240px] rounded-[14px] bg-black/70 p-5 text-center text-white backdrop-blur">
+            <div className="text-[14px] font-semibold">Building 3D structures…</div>
+            <div className="mt-1 text-[12px] text-white/60">
+              {buildDone} of {buildTotal}
+            </div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
+              <div
+                className="h-full rounded-full bg-white transition-[width] duration-200"
+                style={{ width: `${buildTotal > 0 ? Math.round((buildDone / buildTotal) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* molecule switcher */}
-      {molecules.length > 1 && (
-        <div className="absolute top-[120px] left-4 flex flex-col gap-1.5">
-          {molecules.map((m, i) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setARMolecule(m)}
-              className={`rounded-[8px] px-2.5 py-1.5 text-left text-[12px] backdrop-blur transition-colors ${
-                m.label === title ? 'bg-white text-black' : 'bg-black/55 text-white hover:bg-black/75'
-              }`}
-            >
-              {i + 1}. {m.label}
-            </button>
-          ))}
+      {/* status */}
+      {!building && (
+        <div className="pointer-events-none absolute inset-x-0 top-[76px] flex justify-center px-4">
+          <div className="flex items-center gap-2 rounded-full bg-black/55 px-3.5 py-1.5 text-[13px] text-white/90 backdrop-blur">
+            {track === 'loading' && <Loader2 size={13} className="animate-spin" />}
+            {track === 'on' && <Hand size={13} />}
+            <span>{cameraError ?? hint}</span>
+          </div>
         </div>
       )}
 
@@ -470,18 +534,21 @@ export default function ARView() {
       {selected && !measuring && (
         <div className="absolute top-[120px] right-4 w-[190px] rounded-[10px] bg-black/60 p-3 text-white backdrop-blur">
           <div className="flex items-baseline justify-between">
-            <span className="text-[20px] font-bold">{selected.element}</span>
+            <span className="text-[20px] font-bold">{selected.atom.element}</span>
             <span className="text-[11px] text-white/60">
-              {ELEMENTS[selected.element]?.name ?? 'atom'}
+              {ELEMENTS[selected.atom.element]?.name ?? 'atom'}
             </span>
           </div>
           <dl className="mt-2 space-y-1 text-[12px]">
-            <Row k="Atomic number" v={String(ELEMENTS[selected.element]?.z ?? '—')} />
-            <Row k="Mass" v={`${ELEMENTS[selected.element]?.mass ?? '—'}`} />
-            {selected.charge !== 0 && (
-              <Row k="Charge" v={selected.charge > 0 ? `+${selected.charge}` : String(selected.charge)} />
+            <Row k="Atomic number" v={String(ELEMENTS[selected.atom.element]?.z ?? '—')} />
+            <Row k="Mass" v={`${ELEMENTS[selected.atom.element]?.mass ?? '—'}`} />
+            {selected.atom.charge !== 0 && (
+              <Row
+                k="Charge"
+                v={selected.atom.charge > 0 ? `+${selected.atom.charge}` : String(selected.atom.charge)}
+              />
             )}
-            <Row k="Kind" v={selected.implicit ? 'added hydrogen' : 'drawn atom'} />
+            <Row k="Kind" v={selected.atom.implicit ? 'added hydrogen' : 'drawn atom'} />
           </dl>
           <button
             type="button"
@@ -499,8 +566,8 @@ export default function ARView() {
           <div className="text-[13px] font-semibold">Measure</div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-white/70">
             {measurePicks.length === 0
-              ? 'Tap two atoms for a bond length, three for an angle.'
-              : measurePicks.map((a) => a.element).join(' → ')}
+              ? 'Pick two atoms for a bond length, three for an angle.'
+              : measurePicks.map((p) => p.atom.element).join(' → ')}
           </p>
           {measureReadout && (
             <div className="mt-2 rounded-[6px] bg-white/10 px-2 py-1.5 font-mono text-[15px]">
@@ -575,9 +642,13 @@ export default function ARView() {
       </div>
 
       <p className="pointer-events-none absolute inset-x-0 bottom-[68px] flex items-center justify-center gap-1.5 text-center text-[11px] text-white/45">
-        {precise
-          ? 'Embedded 3D coordinates from the NCI structure service.'
-          : 'Shape built on this device from idealized bond angles — not an energy-minimized conformer.'}
+        {focusedEntry
+          ? focusedEntry.precise
+            ? 'Embedded 3D coordinates from the NCI structure service.'
+            : 'Shape built on this device from idealized bond angles — not an energy-minimized conformer.'
+          : entries.length > 1
+            ? 'Pinch or click a molecule to rotate, resize, or pull it closer.'
+            : 'Shape built on this device from idealized bond angles — not an energy-minimized conformer.'}
       </p>
     </div>
   )
@@ -616,12 +687,12 @@ function Ctl({
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
-/** Bond length for two picks, bond angle for three. */
-function describeMeasurement(picks: Atom3D[]): string | null {
+/** Bond length for two picks, bond angle for three — always within one molecule. */
+function describeMeasurement(picks: Pick[]): string | null {
   const d = (a: Atom3D, b: Atom3D) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-  if (picks.length === 2) return `${d(picks[0], picks[1]).toFixed(2)} Å`
+  if (picks.length === 2) return `${d(picks[0].atom, picks[1].atom).toFixed(2)} Å`
   if (picks.length === 3) {
-    const [a, b, c] = picks
+    const [a, b, c] = picks.map((p) => p.atom)
     const v1 = { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }
     const v2 = { x: c.x - b.x, y: c.y - b.y, z: c.z - b.z }
     const dotv = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
@@ -647,17 +718,16 @@ function drawOverlay(
   scene: MoleculeScene,
   hands: HandsFrame,
   showSkeleton: boolean,
-  measurePicks: Atom3D[],
-  selected: Atom3D | null,
+  measurePicks: Pick[],
+  selected: Pick | null,
 ) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
 
-  const project = (a: Atom3D) => scene.projectToScreen(scene.worldPositionOf(a), w, h)
+  const project = (p: Pick) => scene.projectToScreen(scene.worldPositionOf(p.moleculeId, p.atom), w, h)
 
-  // selection ring
   if (selected) {
     const p = project(selected)
     if (!p.behind) {
@@ -669,7 +739,6 @@ function drawOverlay(
     }
   }
 
-  // measurement chain
   if (measurePicks.length > 0) {
     const pts = measurePicks.map(project).filter((p) => !p.behind)
     ctx.strokeStyle = 'rgba(255,214,102,0.95)'

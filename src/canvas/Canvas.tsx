@@ -1,6 +1,4 @@
-import { Box } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { openAR } from '../state/ar'
 import { placeStructureFromSmiles } from '../state/actions'
 import {
   addBond,
@@ -771,60 +769,8 @@ export default function Canvas() {
         />
       )}
 
-      <ARButton />
       <Minimap />
     </main>
-  )
-}
-
-/**
- * Floating "View in AR" call-to-action, anchored above the current
- * selection so it reads as belonging to that molecule. Only shows for the
- * select tool, where a deliberate selection has actually been made.
- */
-function ARButton() {
-  const selection = useEditorStore((s) => s.selection)
-  const view = useEditorStore((s) => s.view)
-  const tool = useEditorStore((s) => s.tool)
-  const molecules = useDocStore((s) => s.molecules)
-
-  if (tool !== 'select') return null
-  if (selection.atomIds.size === 0 && selection.bondIds.size === 0) return null
-
-  // Bounding box of every selected atom (bonds pull in their endpoints).
-  const ids = new Set(selection.atomIds)
-  for (const m of molecules) {
-    for (const b of m.bonds) {
-      if (selection.bondIds.has(b.id)) {
-        ids.add(b.a1)
-        ids.add(b.a2)
-      }
-    }
-  }
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  for (const m of molecules) {
-    for (const a of m.atoms) {
-      if (!ids.has(a.id)) continue
-      minX = Math.min(minX, a.x)
-      minY = Math.min(minY, a.y)
-      maxX = Math.max(maxX, a.x)
-    }
-  }
-  if (!Number.isFinite(minX)) return null
-
-  const top = worldToScreen(view, (minX + maxX) / 2, minY)
-  return (
-    <button
-      type="button"
-      onClick={() => openAR()}
-      title="View this molecule in 3D over your camera"
-      className="absolute z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-accent px-3.5 py-2 text-[13px] font-semibold text-white shadow-lg transition-transform duration-150 hover:-translate-y-0.5 hover:brightness-110"
-      style={{ left: top.x, top: Math.max(52, top.y - 46) }}
-    >
-      <Box size={14} strokeWidth={2.2} /> View in AR
-    </button>
   )
 }
 
