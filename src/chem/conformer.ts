@@ -407,12 +407,34 @@ export function generateConformer(mol: Molecule): Conformer {
       if (pos[i] === null) continue
       const unplaced = ctx.neighbors[i].filter((j) => pos[j] === null)
       if (unplaced.length === 0) continue
-      const taken = ctx.neighbors[i]
-        .filter((j) => pos[j] !== null)
-        .map((j) => sub(pos[j]!, pos[i]!))
+      const placedNb = ctx.neighbors[i].filter((j) => pos[j] !== null)
+      const taken = placedNb.map((j) => sub(pos[j]!, pos[i]!))
       const dirs = openDirections(ctx.hyb[i], taken, unplaced.length)
+
+      // Torsion: without this every bond is placed at the same rotation
+      // about its predecessor, which winds long chains into a helix instead
+      // of the extended zig-zag people expect. Put the first new atom anti
+      // to the grandparent (dihedral ≈ 180°).
+      let antiDir: V3 | null = null
+      if (placedNb.length === 1 && ctx.hyb[i] !== 'sp') {
+        const k = placedNb[0]
+        const grand = ctx.neighbors[k].find((l) => l !== i && pos[l] !== null)
+        if (grand !== undefined) {
+          const u = norm(sub(pos[k]!, pos[i]!)) // i → k
+          const r = sub(pos[grand]!, pos[k]!)
+          const rPerp = sub(r, scale(u, dot(r, u)))
+          if (len(rPerp) > 1e-6) {
+            const theta = idealAngle(ctx.hyb[i])
+            antiDir = norm(
+              add(scale(u, Math.cos(theta)), scale(norm(scale(rPerp, -1)), Math.sin(theta))),
+            )
+          }
+        }
+      }
+
       unplaced.forEach((j, k) => {
-        const d = dirs[k] ?? dirs[dirs.length - 1] ?? { x: 1, y: 0, z: 0 }
+        let d = dirs[k] ?? dirs[dirs.length - 1] ?? { x: 1, y: 0, z: 0 }
+        if (k === 0 && antiDir) d = antiDir
         pos[j] = add(pos[i]!, scale(norm(d), bondLenBetween(i, j)))
       })
       progress = true
@@ -537,6 +559,27 @@ function relax(atoms: Atom3D[], bonds: Conformer['bonds'], ctx: Ctx) {
   // polycyclic core needs several times the passes a small chain does.
   const STEPS = Math.min(1100, 300 + n * 8)
   const step = 0.045
+
+  // Hard wall-clock budget. Relaxation quality degrades gracefully, but a
+  // viewer that never opens is a bug: without this, a long chain spends
+  // tens of seconds here and the AR view simply never appears.
+  const deadline = performance.now() + 1500
+
+  // Nonbonded pairs were an O(n²) scan every step, which is what made large
+  // molecules hang. Atoms only repel within `cutoff`, so bin them into a
+  // grid and look at neighbouring cells only.
+  const cutoff = 3.2
+  const cellOf = (v: number) => Math.floor(v / cutoff)
+  const grid = new Map<string, number[]>()
+  const rebuildGrid = () => {
+    grid.clear()
+    for (let i = 0; i < n; i++) {
+      const key = `${cellOf(atoms[i].x)},${cellOf(atoms[i].y)},${cellOf(atoms[i].z)}`
+      const cell = grid.get(key)
+      if (cell) cell.push(i)
+      else grid.set(key, [i])
+    }
+  }
   for (let iter = 0; iter < STEPS; iter++) {
     const grad: V3[] = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0 }))
 
@@ -576,25 +619,44 @@ function relax(atoms: Atom3D[], bonds: Conformer['bonds'], ctx: Ctx) {
       grad[a.j] = add(grad[a.j], add(g1, g2))
     }
 
-    // Soft repulsion for atoms that aren't bonded or 1-3 related.
+    // Soft repulsion for atoms that aren't bonded or 1-3 related, limited
+    // to grid neighbours so this stays linear in atom count.
+    if (iter % 8 === 0) rebuildGrid()
     for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const key = bondKey(i, j)
-        if (bonded.has(key) || oneThree.has(key)) continue
-        let d = sub(atoms[j], atoms[i])
-        let r2 = dot(d, d)
-        const rMin = covalentRadius(atoms[i].element) + covalentRadius(atoms[j].element) + 0.55
-        if (r2 > rMin * rMin) continue
-        if (r2 < 1e-6) {
-          // Exactly coincident atoms have no separation direction, so the
-          // repulsion term is degenerate. Nudge them apart deterministically.
-          d = { x: ((i * 7 + j) % 5) * 0.01 + 0.01, y: ((i * 3 + j) % 7) * 0.01, z: ((i + j) % 3) * 0.01 }
-          r2 = dot(d, d)
+      const cx = cellOf(atoms[i].x)
+      const cy = cellOf(atoms[i].y)
+      const cz = cellOf(atoms[i].z)
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oy = -1; oy <= 1; oy++) {
+          for (let oz = -1; oz <= 1; oz++) {
+            const cell = grid.get(`${cx + ox},${cy + oy},${cz + oz}`)
+            if (!cell) continue
+            for (const j of cell) {
+              if (j <= i) continue
+              const key = bondKey(i, j)
+              if (bonded.has(key) || oneThree.has(key)) continue
+              let d = sub(atoms[j], atoms[i])
+              let r2 = dot(d, d)
+              const rMin =
+                covalentRadius(atoms[i].element) + covalentRadius(atoms[j].element) + 0.55
+              if (r2 > rMin * rMin) continue
+              if (r2 < 1e-6) {
+                // Exactly coincident atoms have no separation direction, so
+                // the repulsion is degenerate. Nudge them apart.
+                d = {
+                  x: ((i * 7 + j) % 5) * 0.01 + 0.01,
+                  y: ((i * 3 + j) % 7) * 0.01,
+                  z: ((i + j) % 3) * 0.01,
+                }
+                r2 = dot(d, d)
+              }
+              const r = Math.sqrt(r2)
+              const dir = scale(d, (2.2 * (r - rMin)) / r)
+              grad[i] = sub(grad[i], dir)
+              grad[j] = add(grad[j], dir)
+            }
+          }
         }
-        const r = Math.sqrt(r2)
-        const dir = scale(d, (2.2 * (r - rMin)) / r)
-        grad[i] = sub(grad[i], dir)
-        grad[j] = add(grad[j], dir)
       }
     }
 
@@ -606,6 +668,8 @@ function relax(atoms: Atom3D[], bonds: Conformer['bonds'], ctx: Ctx) {
       atoms[i].y -= capped.y * step
       atoms[i].z -= capped.z * step
     }
+
+    if ((iter & 15) === 0 && performance.now() > deadline) break
   }
 }
 

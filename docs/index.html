@@ -471,56 +471,17 @@
 <section id="ar">
   <div class="split">
     <div class="txt reveal">
-      <p class="label">New in 2.0</p>
+      <p class="label">New in 2.1</p>
       <h2>Hold the molecule in your hand</h2>
       <p>Select any structure and press <b>View in AR</b>. ChemCanvas works out its 3D shape, opens your camera, and stands the molecule up in the room in front of you — spheres for atoms, real depth, real geometry.</p>
-      <p>Then use your hands. Open your palm and the molecule settles above it. Pinch and move to turn it over. Pinch with both hands and pull them apart to make it bigger. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
+      <p>Then use your hands. Open your palm and the molecule settles above it. Pinch and move to turn it over. Pinch with both hands and pull them apart to make it bigger. Reach toward the camera and it comes closer. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
+      <p>It's built to be worked in, not just watched: tap any atom to read its element, mass and charge, measure a bond length or an angle by tapping two or three atoms, and switch between the structures on your canvas without leaving.</p>
       <p class="note">Ball-and-stick, space-filling, or wireframe · save a photo of what you see · works with a mouse too if you'd rather drag</p>
     </div>
     <div class="reveal d1">
-      <div class="frame" style="background: var(--frame-bg)">
+      <div class="frame">
         <div class="frame-bar"><i></i><i></i><i></i></div>
-        <svg viewBox="0 0 420 300" style="width:100%; display:block; background:#12141b">
-          <defs>
-            <radialGradient id="cAtom" cx="35%" cy="32%">
-              <stop offset="0" stop-color="#8a8f99"/><stop offset="55%" stop-color="#3c4043"/><stop offset="1" stop-color="#1f2124"/>
-            </radialGradient>
-            <radialGradient id="nAtom" cx="35%" cy="32%">
-              <stop offset="0" stop-color="#93a9ff"/><stop offset="55%" stop-color="#3050f8"/><stop offset="1" stop-color="#1a2c8a"/>
-            </radialGradient>
-            <radialGradient id="oAtom" cx="35%" cy="32%">
-              <stop offset="0" stop-color="#ff8a7a"/><stop offset="55%" stop-color="#ff2010"/><stop offset="1" stop-color="#8f1109"/>
-            </radialGradient>
-            <radialGradient id="hAtom" cx="35%" cy="32%">
-              <stop offset="0" stop-color="#ffffff"/><stop offset="60%" stop-color="#d8dae0"/><stop offset="1" stop-color="#8f939c"/>
-            </radialGradient>
-          </defs>
-          <!-- hand silhouette, suggesting the molecule resting above a palm -->
-          <path d="M150 300 L150 236 Q150 224 160 224 Q170 224 170 236 L170 210 Q170 198 180 198 Q190 198 190 210 L190 204 Q190 192 200 192 Q210 192 210 204 L210 214 Q210 202 220 202 Q230 202 230 214 L230 262 Q230 300 196 300 Z"
-                fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
-          <!-- bonds -->
-          <g stroke-linecap="round">
-            <line x1="150" y1="150" x2="205" y2="120" stroke="#3c4043" stroke-width="7"/>
-            <line x1="205" y1="120" x2="258" y2="150" stroke="#3050f8" stroke-width="7"/>
-            <line x1="258" y1="150" x2="258" y2="96" stroke="#ff2010" stroke-width="7"/>
-            <line x1="150" y1="150" x2="150" y2="106" stroke="#d8dae0" stroke-width="5"/>
-            <line x1="205" y1="120" x2="205" y2="72" stroke="#d8dae0" stroke-width="5"/>
-          </g>
-          <!-- atoms, drawn back-to-front -->
-          <circle cx="150" cy="106" r="10" fill="url(#hAtom)"/>
-          <circle cx="205" cy="72" r="10" fill="url(#hAtom)"/>
-          <circle cx="258" cy="96" r="19" fill="url(#oAtom)"/>
-          <circle cx="150" cy="150" r="21" fill="url(#cAtom)"/>
-          <circle cx="205" cy="120" r="20" fill="url(#nAtom)"/>
-          <circle cx="258" cy="150" r="20" fill="url(#nAtom)"/>
-          <text x="205" y="126" text-anchor="middle" font-family="Figtree" font-size="15" font-weight="700" fill="#fff">N</text>
-          <text x="258" y="102" text-anchor="middle" font-family="Figtree" font-size="14" font-weight="700" fill="#fff">O</text>
-          <!-- pinch indicator -->
-          <circle cx="300" cy="215" r="26" fill="none" stroke="rgba(90,220,140,0.85)" stroke-width="2"/>
-          <text x="300" y="220" text-anchor="middle" font-family="Figtree" font-size="12" font-weight="600" fill="rgba(90,220,140,0.95)">pinch</text>
-          <text x="24" y="34" font-family="Figtree" font-size="13" font-weight="600" fill="rgba(255,255,255,0.85)">Caffeine · 24 atoms</text>
-          <text x="24" y="54" font-family="Figtree" font-size="11.5" fill="rgba(255,255,255,0.5)">Pinch to rotate · two hands to resize</text>
-        </svg>
+        <img src="./assets/shot-3d.png" alt="Four molecules rendered in 3D by ChemCanvas: caffeine, a cyclohexane chair, space-filling caffeine, and cholesterol, each lit with shadows" loading="lazy">
       </div>
     </div>
   </div>
@@ -552,7 +513,7 @@
   <div class="dl reveal">
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 2.0.0</span><span>Windows 10 and 11, 64-bit</span><span>118 MB</span><span>Free</span></div>
+    <div class="meta"><span>Version 2.1.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
     <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
@@ -568,9 +529,60 @@
   <div class="versions">
     <div class="version reveal">
       <div class="version-head">
-        <span class="version-tag">v2.0.0</span>
+        <span class="version-tag">v2.1.0</span>
         <span class="version-date">August 1, 2026</span>
         <span class="badge">Latest</span>
+      </div>
+      <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
+
+      <div class="version-groups">
+        <div>
+          <h4>Genuine 3D rendering</h4>
+          <ul>
+            <li>Rebuilt on WebGL: perspective camera, real lighting, depth buffer</li>
+            <li>Atoms are lit spheres whose highlights move as you turn them</li>
+            <li>Contact shadows, so the molecule sits in the room instead of on top of it</li>
+            <li>Near atoms are genuinely larger than far ones</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Accurate geometry</h4>
+          <ul>
+            <li>Fetches properly embedded 3D coordinates from the NCI structure service</li>
+            <li>Fixes strained bonds in bridged cages — morphine 1.68 Å → 1.54 Å</li>
+            <li>Falls back to on-device geometry offline; toggle it off any time</li>
+          </ul>
+        </div>
+        <div>
+          <h4>AR playground</h4>
+          <ul>
+            <li>Tap an atom to inspect it — element, atomic number, mass, charge</li>
+            <li>Measure mode: two atoms for a bond length, three for an angle</li>
+            <li>Switch between structures without leaving AR</li>
+            <li>Move your hand toward the camera to pull the molecule closer</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Fixes</h4>
+          <ul>
+            <li>Large molecules no longer hang — a 100-carbon chain went from never finishing to about a second</li>
+            <li>Long chains extend properly instead of coiling into a ball</li>
+            <li>Size limit raised from 220 to 600 atoms</li>
+            <li>Carbon labels dropped in favour of heteroatoms only, as skeletal structures are drawn</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="version-links">
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.1.0/ChemCanvas-Setup.exe" download>Download v2.1.0</a>
+        <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.1.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+      </div>
+    </div>
+
+    <div class="version reveal">
+      <div class="version-head">
+        <span class="version-tag">v2.0.0</span>
+        <span class="version-date">August 1, 2026</span>
       </div>
       <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
 
@@ -706,7 +718,7 @@
   <div class="privacy reveal">
     <p class="label">Privacy</p>
     <h2>Privacy policy</h2>
-    <p style="color: var(--ink-soft); margin-top: 22px">The short version: no data is collected, by this website or by the software. There is nothing to opt out of because nothing is gathered in the first place.</p>
+    <p style="color: var(--ink-soft); margin-top: 22px">The short version: nothing about you is collected — no accounts, no telemetry, no analytics, no cookies, no tracking. Your drawings live on your computer. Two features do send a structure or a name out to a public chemistry service when you use them, and both are listed below.</p>
 
     <h3>This website</h3>
     <ul>
@@ -720,7 +732,10 @@
     <ul>
       <li>Runs entirely on your computer. Drawings autosave to your own machine and reopen from there. Nothing is uploaded, synced, or backed up anywhere.</li>
       <li>Contains no telemetry, no crash reporting, no usage statistics, no update pinging, and no account system.</li>
-      <li>Makes exactly one kind of network request: when you type a chemical name into search, the text of that query is sent over HTTPS to PubChem (run by the U.S. National Institutes of Health) or OPSIN (University of Cambridge) to resolve it into a structure. Like any web request, those services can see your IP address; their own policies govern what they do with requests they receive. If you never use name lookup, the app makes no network requests at all and works fully offline.</li>
+      <li><b>Name lookup.</b> When you type a chemical name into search, or ask ChemCanvas to name a structure you drew, that text or structure is sent over HTTPS to PubChem (U.S. National Institutes of Health) or OPSIN (University of Cambridge) to resolve it.</li>
+      <li><b>Precise 3D in the AR viewer.</b> When you open AR, the structure is sent as a SMILES string to NCI CACTUS (U.S. National Cancer Institute) to fetch properly embedded 3D coordinates, which are markedly more accurate than the shape ChemCanvas can derive on its own. The AR viewer works without this — it renders a locally-built shape first, and the precise one only replaces it if it arrives. You can turn it off with the <b>Precise 3D</b> button inside the AR viewer, and the viewer tells you which geometry you're looking at.</li>
+      <li>Both of the above are only triggered by an action you take. Like any web request, those services can see your IP address, and their own policies govern what they do with what they receive. If you don't use name lookup and turn off precise 3D, the app makes no network requests at all and works fully offline.</li>
+      <li>If you work on unpublished structures, note that using those features means the structure reaches a third party. That's the reason each one is optional and labeled rather than silent.</li>
       <li>Discards any cookies those lookup services attempt to set. Nothing persists between requests.</li>
       <li>The AR viewer asks for your camera only when you open it, and stops the camera the moment you leave. Frames are read for hand tracking and discarded immediately — never recorded, never uploaded. The hand-tracking model ships inside the app rather than loading from anyone's server, so using AR contacts no one at all.</li>
     </ul>

@@ -145,6 +145,11 @@ export interface GestureState {
   dPitch: number
   /** Multiplicative scale change this frame. */
   scaleFactor: number
+  /**
+   * Depth change this frame, from how much nearer or further the hand is.
+   * >1 pushes the molecule away, <1 pulls it toward the viewer.
+   */
+  depthFactor: number
   mode: 'idle' | 'follow' | 'rotate' | 'scale'
   hint: string
 }
@@ -152,10 +157,12 @@ export interface GestureState {
 interface GestureMemory {
   lastPinchMid: { x: number; y: number } | null
   lastTwoHandDist: number | null
+  /** Hand span last frame — the proxy for distance from the camera. */
+  lastSpan: number | null
 }
 
 export function createGestureMemory(): GestureMemory {
-  return { lastPinchMid: null, lastTwoHandDist: null }
+  return { lastPinchMid: null, lastTwoHandDist: null, lastSpan: null }
 }
 
 /**
@@ -176,8 +183,26 @@ export function interpretGestures(
     dYaw: 0,
     dPitch: 0,
     scaleFactor: 1,
+    depthFactor: 1,
     mode: 'idle',
     hint: 'Show a hand to place the molecule',
+  }
+
+  // Depth from hand span: a hand held closer to the camera covers more of
+  // the frame. Tracked on any single visible hand, so moving your hand
+  // toward or away from the camera moves the molecule in depth.
+  if (hands.length === 1) {
+    const span = hands[0].span
+    if (mem.lastSpan !== null && mem.lastSpan > 1e-4) {
+      const ratio = span / mem.lastSpan
+      // Clamp hard: landmark jitter otherwise reads as violent depth jumps.
+      if (ratio > 1.004 || ratio < 0.996) {
+        out.depthFactor = Math.max(0.97, Math.min(1.03, 1 / ratio))
+      }
+    }
+    mem.lastSpan = span
+  } else {
+    mem.lastSpan = null
   }
 
   const pinched = hands.filter((h) => h.pinching)
