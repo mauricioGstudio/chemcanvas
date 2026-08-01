@@ -1,7 +1,7 @@
 {
   "name": "chemcanvas",
   "private": true,
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "Draw, search, and export chemical structures.",
   "author": {
     "name": "Mauricio Gubert"

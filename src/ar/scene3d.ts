@@ -35,6 +35,14 @@ export interface ScenePick {
 
 const GAP = 3 // Å between molecule bounding spheres in the layout row
 const DIM_OPACITY = 0.28
+/**
+ * How much bigger a molecule gets when it becomes the focus. It grows where
+ * it already stands — the layout position is never touched — so the figure is
+ * capped at render time by however much room that spot has left.
+ */
+const FOCUS_EXPAND = 2.0
+/** Scale easing per second: quick enough to feel immediate, slow enough to read as growth. */
+const SCALE_EASE = 9
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 /** Radius used for an atom in a given display mode, in Ångström. */
@@ -49,6 +57,8 @@ interface Instance {
   conformer: Conformer
   /** Positioned at the layout offset; local transform is what focus manipulates. */
   group: THREE.Group
+  /** Scale the group eases toward — expansion on focus, back to 1 on release. */
+  targetScale: number
   atomMat: THREE.MeshStandardMaterial
   bondMat: THREE.MeshStandardMaterial | null
   atomMesh: THREE.InstancedMesh
@@ -115,12 +125,16 @@ export class MoleculeScene {
 
   /** Rebuild every molecule group, preserving each one's current transform. */
   private build() {
-    const saved = new Map<string, { rx: number; ry: number; scale: number; z: number }>()
+    const saved = new Map<
+      string,
+      { rx: number; ry: number; scale: number; target: number; z: number }
+    >()
     for (const [id, inst] of this.instances) {
       saved.set(id, {
         rx: inst.group.rotation.x,
         ry: inst.group.rotation.y,
         scale: inst.group.scale.x,
+        target: inst.targetScale,
         z: inst.group.position.z,
       })
     }
@@ -153,6 +167,7 @@ export class MoleculeScene {
         inst.group.rotation.x = s.rx
         inst.group.rotation.y = s.ry
         inst.group.scale.setScalar(s.scale)
+        inst.targetScale = s.target
         inst.group.position.z = s.z
       }
       this.instances.set(entry.id, inst)
@@ -285,6 +300,7 @@ export class MoleculeScene {
       id: entry.id,
       conformer,
       group,
+      targetScale: 1,
       atomMat,
       bondMat,
       atomMesh,
@@ -374,6 +390,78 @@ export class MoleculeScene {
     return null
   }
 
+  /** Which molecule a ray hits anywhere on its geometry — an atom or a bond. */
+  pickMolecule(ndcX: number, ndcY: number): string | null {
+    if (this.instances.size === 0) return null
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
+    const meshes: THREE.Object3D[] = []
+    for (const inst of this.instances.values()) {
+      meshes.push(inst.atomMesh)
+      if (inst.bondMesh) meshes.push(inst.bondMesh)
+    }
+    const hits = raycaster.intersectObjects(meshes, false)
+    if (hits.length === 0) return null
+    for (const inst of this.instances.values()) {
+      if (inst.atomMesh === hits[0].object || inst.bondMesh === hits[0].object) return inst.id
+    }
+    return null
+  }
+
+  /**
+   * Does this ray pass through a molecule's bounding sphere? Deliberately
+   * looser than geometry picking, because it answers a different question:
+   * whether a pinch counts as landing *on* the focused molecule. Pinching the
+   * empty gap between two of its atoms should not throw the focus away.
+   */
+  withinBounds(id: string, ndcX: number, ndcY: number): boolean {
+    const inst = this.instances.get(id)
+    if (!inst) return false
+    this.root.updateMatrixWorld(true)
+    const center = inst.group.getWorldPosition(new THREE.Vector3())
+    const radius = inst.conformer.radius * inst.group.scale.x
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
+    return raycaster.ray.intersectsSphere(new THREE.Sphere(center, radius))
+  }
+
+  /**
+   * Scale that makes one molecule read as the subject of the view.
+   *
+   * Capped so it still fits the frame from wherever it happens to sit: the
+   * layout position is never changed to make room, so a molecule far out to
+   * one side has less to grow into than one near the middle.
+   */
+  focusScaleFor(id: string, cameraDistance: number): number {
+    const inst = this.instances.get(id)
+    if (!inst) return 1
+    const fov = (this.camera.fov * Math.PI) / 180
+    const halfH = Math.tan(fov / 2) * Math.max(cameraDistance, 1)
+    const halfW = halfH * Math.max(this.camera.aspect, 0.1)
+    const r = Math.max(inst.conformer.radius, 0.1)
+    const room = Math.max(halfW - Math.abs(inst.group.position.x), r)
+    const fit = Math.min(room / r, (halfH * 0.9) / r)
+    return clamp(Math.min(FOCUS_EXPAND, fit), 1, 4)
+  }
+
+  /** Grow the focused molecule in place; return every other one to its laid-out size. */
+  setFocusExpansion(focusedId: string | null, cameraDistance: number) {
+    for (const [id, inst] of this.instances) {
+      inst.targetScale = id === focusedId ? this.focusScaleFor(id, cameraDistance) : 1
+    }
+  }
+
+  /** Ease every group toward its target scale. Call once per frame. */
+  update(dt: number) {
+    const k = 1 - Math.exp(-SCALE_EASE * Math.min(Math.max(dt, 0), 0.1))
+    for (const inst of this.instances.values()) {
+      const s = inst.group.scale.x
+      if (s === inst.targetScale) continue
+      const next = Math.abs(inst.targetScale - s) < 1e-4 ? inst.targetScale : s + (inst.targetScale - s) * k
+      inst.group.scale.setScalar(next)
+    }
+  }
+
   /** Dim every molecule except the focused one; pass null to bring all back to full opacity. */
   setFocusHighlight(focusedId: string | null) {
     for (const [id, inst] of this.instances) {
@@ -393,27 +481,27 @@ export class MoleculeScene {
     inst.group.rotation.x = clamp(inst.group.rotation.x + dPitch, -1.6, 1.6)
   }
 
-  /** Scale one molecule up or down, multiplicatively, clamped to a sane range. */
+  /**
+   * Scale one molecule up or down, multiplicatively, clamped to a sane range.
+   * Moves the target rather than the group directly, so a resize on top of an
+   * in-flight focus expansion blends instead of fighting it.
+   */
   scaleInstance(id: string, factor: number) {
     const inst = this.instances.get(id)
     if (!inst) return
-    const next = clamp(inst.group.scale.x * factor, 0.3, 4)
-    inst.group.scale.setScalar(next)
+    inst.targetScale = clamp(inst.targetScale * factor, 0.3, 4)
   }
 
-  /** Nudge one molecule toward (>1) or away from (<1) the camera. */
-  depthInstance(id: string, factor: number) {
-    const inst = this.instances.get(id)
-    if (!inst) return
-    const step = (factor - 1) * 60
-    inst.group.position.z = clamp(inst.group.position.z + step, -40, 60)
-  }
+  // A focused molecule deliberately has no way to be translated. It grows and
+  // turns where it stands; hand-distance now drives the camera instead, so the
+  // structure being read can't drift out from under the reader.
 
   /** Reset every molecule's manipulation transform back to how it laid out. */
   resetAllTransforms() {
     for (const inst of this.instances.values()) {
       inst.group.rotation.set(0, 0, 0)
       inst.group.scale.setScalar(1)
+      inst.targetScale = 1
       inst.group.position.z = 0
     }
   }
@@ -445,6 +533,7 @@ export class MoleculeScene {
       rotX: inst.group.rotation.x,
       rotY: inst.group.rotation.y,
       scale: inst.group.scale.x,
+      targetScale: inst.targetScale,
       radius: inst.conformer.radius,
       opacity: inst.atomMat.opacity,
     }))
