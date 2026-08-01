@@ -190,14 +190,7 @@ export default function ContextMenu() {
         <Divider />
         <Item
           label="View in AR…"
-          onClick={() => {
-            if (found)
-              editor.select({
-                atomIds: found.mol.atoms.map((a) => a.id),
-                bondIds: found.mol.bonds.map((b) => b.id),
-              })
-            openAR()
-          }}
+          onClick={() => openAR(found?.mol.id)}
         />
         <Item
           label="Name this structure…"

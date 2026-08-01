@@ -1,7 +1,7 @@
 {
   "name": "chemcanvas",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Draw, search, and export chemical structures.",
   "author": "Mauricio",
   "type": "module",

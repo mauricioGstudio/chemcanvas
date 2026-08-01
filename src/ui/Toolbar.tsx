@@ -1,4 +1,5 @@
 import {
+  Box,
   ChevronDown,
   Eraser,
   Hexagon,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { RING_TEMPLATES } from '../model/templates'
+import { openAR } from '../state/ar'
 import { redo, undo, useHistory } from '../state/doc'
 import { useEditorStore, type BondStereoTool } from '../state/editor'
 import { useUIStore } from '../state/store'
@@ -382,6 +384,18 @@ export default function Toolbar() {
       </BarButton>
 
       <div className="flex-1" />
+
+      <Tip label="View the whole canvas in AR">
+        <button
+          type="button"
+          onClick={() => openAR()}
+          className="flex h-7 items-center gap-1.5 rounded-[6px] border border-edge bg-panel px-2.5 text-[12px] text-secondary transition-colors duration-150 hover:border-edge-strong hover:text-primary"
+          aria-label="View the whole canvas in AR"
+        >
+          <Box size={13} strokeWidth={1.75} />
+          <span className="hidden md:inline">AR</span>
+        </button>
+      </Tip>
 
       <ExportMenu />
 
