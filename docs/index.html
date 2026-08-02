@@ -509,10 +509,11 @@
 <section id="ar">
   <div class="split">
     <div class="txt reveal">
-      <p class="label">New in 2.2</p>
+      <p class="label">New in 2.4</p>
       <h2>Put the whole canvas in the room</h2>
       <p>Press <b>AR</b> and everything you've drawn comes with you — not one structure at a time. ChemCanvas works out each shape, opens your camera, and stands them all up in a row in front of you, spheres for atoms, real depth, real geometry. A progress bar counts the structures as they're built, so you're never staring at an empty screen wondering.</p>
-      <p>Pinch any part of a molecule and it grows — right where it stands, no jumping to the middle — while everything else fades back. From then on it's the only thing your hands can reach. Pinch one of its atoms and move your hand to turn it over; pinch with both hands and pull them apart to make it bigger. It turns on its own axis and stays exactly where you left it, so a hand crossing the frame can't nudge the structure you're reading. Pinch clear of it to let it go. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
+      <p>You can see what you're about to grab before you grab it. Whatever your finger and thumb are nearest lights up — a molecule, or a single atom once you're inside one — and the ring changes the moment you actually close the pinch. No guessing, no grabbing the wrong thing.</p>
+      <p>Pinch any part of a molecule and it grows — right where it stands, no jumping to the middle — while everything else fades back. From then on it's the only thing your hands can reach. Pinch one of its atoms and move your hand to turn it over. Pinch the cross-hair at its centre and it slides instead, following your hand. Pinch with both hands and pull them apart to make it bigger — and while both hands are up it won't let go by accident, so a resize can't drop you out. Pinch clear of it to let it go. Nothing to wear, nothing to set up, no headset — just a camera and your hands.</p>
       <p>It's built to be worked in, not just watched: pick any atom to read its element, mass and charge, or measure a bond length or an angle by picking two or three atoms on the same structure.</p>
       <p class="note">Ball-and-stick, space-filling, or wireframe · save a photo of what you see · works with a mouse too if you'd rather drag</p>
     </div>
@@ -551,7 +552,7 @@
   <div class="dl reveal">
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 2.3.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
+    <div class="meta"><span>Version 2.4.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
     <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
@@ -568,14 +569,14 @@
       <details class="major reveal" open>
         <summary class="major-head">
           <span class="major-tag">v2</span>
-          <span class="tier-meta">5 releases · newest v2.3.0</span>
+          <span class="tier-meta">6 releases · newest v2.4.0</span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </summary>
 
         <div class="minors">
           <details class="minor" open>
             <summary class="minor-head">
-              <span class="minor-tag">v2.3</span>
+              <span class="minor-tag">v2.4</span>
               <span class="tier-meta">1 release</span>
               <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </summary>
@@ -583,9 +584,72 @@
 
               <details class="version" open>
                 <summary class="version-head">
-                  <span class="version-tag">v2.3.0</span>
+                  <span class="version-tag">v2.4.0</span>
                   <span class="version-date">August 1, 2026</span>
                   <span class="badge">Latest</span>
+                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="version-note">See what you're about to grab, and a handle for moving things.</p>
+
+                <div class="version-groups">
+                  <div>
+                    <h4>Highlight before you grab</h4>
+                    <ul>
+                      <li>Whatever your finger and thumb are nearest lights up before you pinch</li>
+                      <li>Closing the pinch switches it to a second, unmistakably different ring</li>
+                      <li>Molecules when nothing is picked, individual atoms once you're inside one</li>
+                      <li>Works the same under the mouse as it does under your hands</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Centre handle</h4>
+                    <ul>
+                      <li>A cross-hair at each focused molecule's centre</li>
+                      <li>Pinch it and the molecule slides with your hand instead of turning</li>
+                      <li>Rotation stays on the atoms, so the two never fight</li>
+                      <li>Reset puts everything back on its shelf</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Steadier selection</h4>
+                    <ul>
+                      <li>Two hands on screen can no longer drop the focus by accident mid-resize</li>
+                      <li>Aiming near something now picks it — exact hits are no longer required</li>
+                      <li>Ties break toward whatever is closest to the camera, so atoms behind a ring stop stealing the pick</li>
+                      <li>One rule decides what's grabbable, so the highlight and the pinch can never disagree</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4>Under the hood</h4>
+                    <ul>
+                      <li>Targeting allocates nothing per frame — measured at 0 KB over 400 passes</li>
+                      <li>Resizing the renderer is skipped entirely when the size hasn't changed</li>
+                      <li>The render loop is no longer torn down and rebuilt during an interaction</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="version-links">
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.4.0/ChemCanvas-Setup.exe" download>Download v2.4.0</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.4.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                </div>
+              </details>
+
+            </div>
+          </details>
+
+          <details class="minor">
+            <summary class="minor-head">
+              <span class="minor-tag">v2.3</span>
+              <span class="tier-meta">1 release</span>
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="patches">
+
+              <details class="version">
+                <summary class="version-head">
+                  <span class="version-tag">v2.3.0</span>
+                  <span class="version-date">August 1, 2026</span>
                   <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </summary>
                 <p class="version-note">One molecule at a time, held still while you work on it.</p>

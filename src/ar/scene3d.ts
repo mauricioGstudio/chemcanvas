@@ -33,6 +33,37 @@ export interface ScenePick {
   index: number
 }
 
+/** What kind of thing a pinch is aimed at. */
+export type TargetKind = 'molecule' | 'atom' | 'center'
+
+/**
+ * Something the fingers are near enough to grab, with where to draw the
+ * highlight. Screen fields are CSS pixels so the overlay can use them directly.
+ */
+export interface SceneTarget {
+  kind: TargetKind
+  moleculeId: string
+  /** Only for kind 'atom'. */
+  atom: Atom3D | null
+  index: number
+  sx: number
+  sy: number
+  /** Screen radius of the thing itself, for sizing the ring around it. */
+  sr: number
+}
+
+/**
+ * Which things are grabbable right now. Mirrors the three interaction states
+ * exactly, so there is one place that decides what a pinch can land on.
+ */
+export type TargetScope =
+  /** Nothing focused — whole molecules. */
+  | { kind: 'molecules' }
+  /** One molecule focused — its atoms and its centre handle. */
+  | { kind: 'within'; moleculeId: string }
+  /** Measure mode — atoms on any molecule. */
+  | { kind: 'atoms' }
+
 const GAP = 3 // Å between molecule bounding spheres in the layout row
 const DIM_OPACITY = 0.28
 /**
@@ -43,7 +74,30 @@ const DIM_OPACITY = 0.28
 const FOCUS_EXPAND = 2.0
 /** Scale easing per second: quick enough to feel immediate, slow enough to read as growth. */
 const SCALE_EASE = 9
+
+/**
+ * How far, in CSS pixels, the fingers can be from something and still grab it.
+ * Hand tracking lands within a few pixels at best and the aim point is the
+ * midpoint of two moving fingertips, so exact-hit picking is unusable — these
+ * are floors, widened further by how big the thing is on screen.
+ */
+const GRAB_ATOM_MIN_PX = 26
+const GRAB_CENTER_PX = 30
+/** A molecule can be grabbed slightly outside its silhouette. */
+const GRAB_MOLECULE_SLACK = 1.15
+
+const EMPHASIS_HOVER = 0x16233d
+const EMPHASIS_ACTIVE = 0x2f52d8
+
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
+// Scratch objects. Targeting runs every frame over every atom, so nothing in
+// that path is allowed to allocate.
+const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _v3 = new THREE.Vector3()
+const _v4 = new THREE.Vector3()
+const _q1 = new THREE.Quaternion()
 
 /** Radius used for an atom in a given display mode, in Ångström. */
 function atomRadius(el: string, mode: DisplayMode): number {
@@ -57,6 +111,8 @@ interface Instance {
   conformer: Conformer
   /** Positioned at the layout offset; local transform is what focus manipulates. */
   group: THREE.Group
+  /** Where the row layout put it. Dragging measures its clamp from here. */
+  layoutX: number
   /** Scale the group eases toward — expansion on focus, back to 1 on release. */
   targetScale: number
   atomMat: THREE.MeshStandardMaterial
@@ -77,6 +133,11 @@ export class MoleculeScene {
   private entries: SceneEntry[]
   private opts: SceneOptions
   private instances = new Map<string, Instance>()
+  private emphasisHover: string | null = null
+  private emphasisActive: string | null = null
+  private viewW = 0
+  private viewH = 0
+  private viewDpr = 0
   private ground: THREE.Mesh | null = null
   private disposables: { dispose: () => void }[] = []
   private overallRadius = 1
@@ -127,7 +188,7 @@ export class MoleculeScene {
   private build() {
     const saved = new Map<
       string,
-      { rx: number; ry: number; scale: number; target: number; z: number }
+      { rx: number; ry: number; scale: number; target: number; dx: number; dy: number; dz: number }
     >()
     for (const [id, inst] of this.instances) {
       saved.set(id, {
@@ -135,7 +196,11 @@ export class MoleculeScene {
         ry: inst.group.rotation.y,
         scale: inst.group.scale.x,
         target: inst.targetScale,
-        z: inst.group.position.z,
+        // Offsets from the layout slot, so a rebuild that re-lays the row out
+        // keeps whatever the user dragged rather than snapping it back.
+        dx: inst.group.position.x - inst.layoutX,
+        dy: inst.group.position.y,
+        dz: inst.group.position.z,
       })
     }
     this.teardownAll()
@@ -161,6 +226,7 @@ export class MoleculeScene {
       group.position.x = gx
       this.root.add(group)
       const inst = this.buildInstance(entry, group)
+      inst.layoutX = gx
 
       const s = saved.get(entry.id)
       if (s) {
@@ -168,7 +234,7 @@ export class MoleculeScene {
         inst.group.rotation.y = s.ry
         inst.group.scale.setScalar(s.scale)
         inst.targetScale = s.target
-        inst.group.position.z = s.z
+        inst.group.position.set(gx + s.dx, s.dy, s.dz)
       }
       this.instances.set(entry.id, inst)
     })
@@ -300,6 +366,7 @@ export class MoleculeScene {
       id: entry.id,
       conformer,
       group,
+      layoutX: group.position.x,
       targetScale: 1,
       atomMat,
       bondMat,
@@ -357,7 +424,12 @@ export class MoleculeScene {
     if (changed) this.build()
   }
 
+  /** No-op when nothing changed — this is called every frame from the render loop. */
   resize(width: number, height: number, dpr: number) {
+    if (width === this.viewW && height === this.viewH && dpr === this.viewDpr) return
+    this.viewW = width
+    this.viewH = height
+    this.viewDpr = dpr
     this.renderer.setPixelRatio(dpr)
     this.renderer.setSize(width, height, false)
     this.camera.aspect = width / Math.max(height, 1)
@@ -370,59 +442,193 @@ export class MoleculeScene {
     return (this.overallRadius * 1.6) / Math.tan(fov / 2)
   }
 
-  /** Ray-pick an atom from normalized device coordinates, across every molecule. */
-  pick(ndcX: number, ndcY: number): ScenePick | null {
-    if (this.instances.size === 0) return null
-    const raycaster = new THREE.Raycaster()
-    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
-    const meshes = [...this.instances.values()].map((i) => i.atomMesh)
-    const hits = raycaster.intersectObjects(meshes, false)
-    if (hits.length === 0) return null
-    const hitMesh = hits[0].object
-    const instanceId = hits[0].instanceId
-    if (instanceId === undefined) return null
-    for (const inst of this.instances.values()) {
-      if (inst.atomMesh === hitMesh) {
-        const entry = inst.visibleAtoms[instanceId]
-        return entry ? { moleculeId: inst.id, atom: entry.atom, index: entry.index } : null
-      }
-    }
-    return null
+  /**
+   * Bring world matrices up to date. Called once a frame before targeting, so
+   * hover reflects this frame's transforms rather than last frame's. Not
+   * forced — three only recomputes branches whose local matrix changed, and
+   * the render immediately after then finds nothing left to do.
+   */
+  syncMatrices() {
+    this.camera.updateMatrixWorld()
+    this.root.updateMatrixWorld()
   }
 
-  /** Which molecule a ray hits anywhere on its geometry — an atom or a bond. */
-  pickMolecule(ndcX: number, ndcY: number): string | null {
-    if (this.instances.size === 0) return null
-    const raycaster = new THREE.Raycaster()
-    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
-    const meshes: THREE.Object3D[] = []
-    for (const inst of this.instances.values()) {
-      meshes.push(inst.atomMesh)
-      if (inst.bondMesh) meshes.push(inst.bondMesh)
+  /** Project a world point held in `_v1` to CSS pixels. Returns depth for tie-breaks. */
+  private projectScratch(w: number, h: number) {
+    _v1.project(this.camera)
+    return {
+      x: ((_v1.x + 1) / 2) * w,
+      y: ((1 - _v1.y) / 2) * h,
+      behind: _v1.z > 1,
     }
-    const hits = raycaster.intersectObjects(meshes, false)
-    if (hits.length === 0) return null
-    for (const inst of this.instances.values()) {
-      if (inst.atomMesh === hits[0].object || inst.bondMesh === hits[0].object) return inst.id
-    }
-    return null
+  }
+
+  /** Pixels-per-world-unit at a given world point, for sizing screen radii. */
+  private pixelScaleAt(worldX: number, worldY: number, worldZ: number, h: number): number {
+    const fov = (this.camera.fov * Math.PI) / 180
+    const dist = Math.max(
+      this.camera.position.distanceTo(_v4.set(worldX, worldY, worldZ)),
+      0.01,
+    )
+    return h / (2 * Math.tan(fov / 2) * dist)
   }
 
   /**
-   * Does this ray pass through a molecule's bounding sphere? Deliberately
-   * looser than geometry picking, because it answers a different question:
-   * whether a pinch counts as landing *on* the focused molecule. Pinching the
-   * empty gap between two of its atoms should not throw the focus away.
+   * What a pinch aimed at this point would grab, or null if it would grab
+   * nothing.
+   *
+   * Proximity in screen space, not ray hits. Fingers are aimed roughly and the
+   * aim point is the midpoint of two moving fingertips, so a highlight that
+   * only appears when you are exactly over an atom is unusable in practice.
+   * Everything is scored as distance ÷ its own grab radius, so a small atom
+   * right under the fingers beats a fat one further away, and near-ties are
+   * broken by whichever is closer to the camera — otherwise a back atom
+   * showing through the middle of a ring steals the pick from the front one.
    */
-  withinBounds(id: string, ndcX: number, ndcY: number): boolean {
+  targetAt(ndcX: number, ndcY: number, w: number, h: number, scope: TargetScope): SceneTarget | null {
+    if (this.instances.size === 0) return null
+    const px = ((ndcX + 1) / 2) * w
+    const py = ((1 - ndcY) / 2) * h
+
+    let bestScore = Infinity
+    let bestDepth = Infinity
+    let best: SceneTarget | null = null
+
+    const consider = (t: SceneTarget, dist: number, grab: number, camDist: number) => {
+      if (dist > grab) return
+      const score = dist / grab
+      // Bucketed so "about as close" ties resolve by depth instead of by a
+      // sub-pixel difference in finger position.
+      const bucket = Math.round(score * 4)
+      const bestBucket = Math.round(bestScore * 4)
+      if (bucket < bestBucket || (bucket === bestBucket && camDist < bestDepth)) {
+        bestScore = score
+        bestDepth = camDist
+        best = t
+      }
+    }
+
+    const considerAtomsOf = (inst: Instance) => {
+      const m = inst.group.matrixWorld
+      const scale = inst.group.scale.x
+      for (let i = 0; i < inst.visibleAtoms.length; i++) {
+        const a = inst.visibleAtoms[i].atom
+        _v1.set(a.x, a.y, a.z).applyMatrix4(m)
+        const wx = _v1.x
+        const wy = _v1.y
+        const wz = _v1.z
+        const camDist = this.camera.position.distanceTo(_v2.set(wx, wy, wz))
+        const s = this.projectScratch(w, h)
+        if (s.behind) continue
+        const rPx = atomRadius(a.element, this.opts.mode) * scale * this.pixelScaleAt(wx, wy, wz, h)
+        const dist = Math.hypot(s.x - px, s.y - py)
+        consider(
+          {
+            kind: 'atom',
+            moleculeId: inst.id,
+            atom: a,
+            index: inst.visibleAtoms[i].index,
+            sx: s.x,
+            sy: s.y,
+            sr: Math.max(rPx, 4),
+          },
+          dist,
+          Math.max(rPx * 1.5, GRAB_ATOM_MIN_PX),
+          camDist,
+        )
+      }
+    }
+
+    if (scope.kind === 'molecules') {
+      for (const inst of this.instances.values()) {
+        _v1.setFromMatrixPosition(inst.group.matrixWorld)
+        const wx = _v1.x
+        const wy = _v1.y
+        const wz = _v1.z
+        const camDist = this.camera.position.distanceTo(_v2.set(wx, wy, wz))
+        const s = this.projectScratch(w, h)
+        if (s.behind) continue
+        const rPx =
+          inst.conformer.radius * inst.group.scale.x * this.pixelScaleAt(wx, wy, wz, h)
+        const dist = Math.hypot(s.x - px, s.y - py)
+        consider(
+          { kind: 'molecule', moleculeId: inst.id, atom: null, index: -1, sx: s.x, sy: s.y, sr: rPx },
+          dist,
+          Math.max(rPx * GRAB_MOLECULE_SLACK, GRAB_ATOM_MIN_PX),
+          camDist,
+        )
+      }
+      return best
+    }
+
+    if (scope.kind === 'atoms') {
+      for (const inst of this.instances.values()) considerAtomsOf(inst)
+      return best
+    }
+
+    const inst = this.instances.get(scope.moleculeId)
+    if (!inst) return null
+    considerAtomsOf(inst)
+
+    // The centre handle competes with the atoms rather than overriding them,
+    // so an atom sitting on top of the centre is still reachable.
+    _v1.setFromMatrixPosition(inst.group.matrixWorld)
+    const camDist = this.camera.position.distanceTo(_v2.copy(_v1))
+    const s = this.projectScratch(w, h)
+    if (!s.behind) {
+      const dist = Math.hypot(s.x - px, s.y - py)
+      consider(
+        { kind: 'center', moleculeId: inst.id, atom: null, index: -1, sx: s.x, sy: s.y, sr: 13 },
+        dist,
+        GRAB_CENTER_PX,
+        camDist,
+      )
+    }
+    return best
+  }
+
+  /** Where to draw a molecule's centre handle, in CSS pixels. */
+  centerHandleScreen(id: string, w: number, h: number): { x: number; y: number; behind: boolean } | null {
+    const inst = this.instances.get(id)
+    if (!inst) return null
+    _v1.setFromMatrixPosition(inst.group.matrixWorld)
+    return this.projectScratch(w, h)
+  }
+
+  /**
+   * Is a screen point over a molecule at all? Looser than targeting, because
+   * it answers a different question: whether a pinch counts as landing *on*
+   * the focused molecule. Pinching the empty gap between two of its atoms
+   * should not throw the focus away.
+   */
+  withinBounds(id: string, ndcX: number, ndcY: number, w: number, h: number): boolean {
     const inst = this.instances.get(id)
     if (!inst) return false
-    this.root.updateMatrixWorld(true)
-    const center = inst.group.getWorldPosition(new THREE.Vector3())
-    const radius = inst.conformer.radius * inst.group.scale.x
-    const raycaster = new THREE.Raycaster()
-    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera)
-    return raycaster.ray.intersectsSphere(new THREE.Sphere(center, radius))
+    const px = ((ndcX + 1) / 2) * w
+    const py = ((1 - ndcY) / 2) * h
+    _v1.setFromMatrixPosition(inst.group.matrixWorld)
+    const wx = _v1.x
+    const wy = _v1.y
+    const wz = _v1.z
+    const s = this.projectScratch(w, h)
+    if (s.behind) return false
+    const rPx = inst.conformer.radius * inst.group.scale.x * this.pixelScaleAt(wx, wy, wz, h)
+    return Math.hypot(s.x - px, s.y - py) <= Math.max(rPx, GRAB_ATOM_MIN_PX)
+  }
+
+  /**
+   * Tint the hovered and grabbed molecules. Early-outs when nothing changed,
+   * because this is called every frame.
+   */
+  setMoleculeEmphasis(hoverId: string | null, activeId: string | null) {
+    if (hoverId === this.emphasisHover && activeId === this.emphasisActive) return
+    this.emphasisHover = hoverId
+    this.emphasisActive = activeId
+    for (const [id, inst] of this.instances) {
+      const c = id === activeId ? EMPHASIS_ACTIVE : id === hoverId ? EMPHASIS_HOVER : 0x000000
+      inst.atomMat.emissive.setHex(c)
+      inst.bondMat?.emissive.setHex(c)
+    }
   }
 
   /**
@@ -492,9 +698,35 @@ export class MoleculeScene {
     inst.targetScale = clamp(inst.targetScale * factor, 0.3, 4)
   }
 
-  // A focused molecule deliberately has no way to be translated. It grows and
-  // turns where it stands; hand-distance now drives the camera instead, so the
-  // structure being read can't drift out from under the reader.
+  /**
+   * Slide one molecule parallel to the screen, by a delta in CSS pixels.
+   *
+   * This is the only way a molecule can be moved, and it only happens while
+   * the centre handle is held — hand distance drives the camera, never the
+   * molecule, so nothing drifts just because a hand did. Working in pixels
+   * means it tracks the fingers at any distance, and the delta is rotated out
+   * of world space into the row's frame because that is where positions live.
+   */
+  translateInstance(id: string, dxPx: number, dyPx: number, viewportH: number) {
+    const inst = this.instances.get(id)
+    if (!inst) return
+    _v1.setFromMatrixPosition(inst.group.matrixWorld)
+    const perPx = 1 / this.pixelScaleAt(_v1.x, _v1.y, _v1.z, viewportH)
+
+    const right = _v2.setFromMatrixColumn(this.camera.matrixWorld, 0)
+    const up = _v3.setFromMatrixColumn(this.camera.matrixWorld, 1)
+    const delta = _v4
+      .set(0, 0, 0)
+      .addScaledVector(right, dxPx * perPx)
+      .addScaledVector(up, -dyPx * perPx)
+    delta.applyQuaternion(_q1.copy(this.root.quaternion).invert())
+
+    const span = Math.max(this.overallRadius, 4) * 1.5
+    const p = inst.group.position
+    p.x = clamp(p.x + delta.x, inst.layoutX - span, inst.layoutX + span)
+    p.y = clamp(p.y + delta.y, -span, span)
+    p.z = clamp(p.z + delta.z, -span, span)
+  }
 
   /** Reset every molecule's manipulation transform back to how it laid out. */
   resetAllTransforms() {
@@ -502,7 +734,7 @@ export class MoleculeScene {
       inst.group.rotation.set(0, 0, 0)
       inst.group.scale.setScalar(1)
       inst.targetScale = 1
-      inst.group.position.z = 0
+      inst.group.position.set(inst.layoutX, 0, 0)
     }
   }
 
@@ -534,8 +766,10 @@ export class MoleculeScene {
       rotY: inst.group.rotation.y,
       scale: inst.group.scale.x,
       targetScale: inst.targetScale,
+      layoutX: inst.layoutX,
       radius: inst.conformer.radius,
       opacity: inst.atomMat.opacity,
+      emissive: inst.atomMat.emissive.getHex(),
     }))
   }
 

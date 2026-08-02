@@ -26,7 +26,7 @@ import {
   interpretGestures,
   type HandsFrame,
 } from './hands'
-import { MoleculeScene, type DisplayMode } from './scene3d'
+import { MoleculeScene, type DisplayMode, type SceneTarget, type TargetScope } from './scene3d'
 
 /**
  * Fullscreen AR viewer: every structure from the canvas, laid out side by
@@ -93,6 +93,19 @@ export default function ARView() {
    * molecule you are working on.
    */
   const rotatingRef = useRef(false)
+  /** Set when the grab landed on the centre handle: the molecule moves instead of turning. */
+  const movingRef = useRef(false)
+  /** What the fingers are aimed at right now — drawn as the pre-pinch highlight. */
+  const hoverRef = useRef<SceneTarget | null>(null)
+  /** What is actually held. Drawn differently, and it outranks hover. */
+  const grabbedRef = useRef<SceneTarget | null>(null)
+  /** Hands visible this frame; two of them suppress release-on-pinch-outside. */
+  const handCountRef = useRef(0)
+  /** Latest aim position in CSS pixels, for the pointer path and the overlay. */
+  const aimPxRef = useRef<{ x: number; y: number } | null>(null)
+  const measurePicksRef = useRef<Pick[]>([])
+  const selectedRef = useRef<Pick | null>(null)
+  const skeletonRef = useRef(true)
   const view = useRef<ViewState>({ yaw: 0.6, pitch: 0.3, distance: 30 })
 
   const [cameraOn, setCameraOn] = useState(false)
@@ -112,6 +125,9 @@ export default function ARView() {
   spinRef.current = autoSpin
   focusedIdRef.current = focusedId
   measuringRef.current = measuring
+  measurePicksRef.current = measurePicks
+  selectedRef.current = selected
+  skeletonRef.current = showSkeleton
 
   const focusedEntry = entries.find((e) => e.id === focusedId) ?? null
 
@@ -236,24 +252,36 @@ export default function ARView() {
   }, [])
 
   /**
-   * A pinch or click landing somewhere in the scene.
-   *
-   * With nothing focused, hitting any part of a molecule — atom or bond —
-   * makes it the focus and expands it. Once something is focused the rules
-   * narrow: one of its atoms starts a rotation, anywhere else still over it
-   * does nothing, and only a pinch clear of it gives the focus back up.
+   * What a pinch can currently land on. One place decides this, so hover
+   * highlighting and the pinch itself can never disagree about what is
+   * grabbable — the class of bug where the ring is drawn round one thing and
+   * the pinch takes another.
+   */
+  const scopeNow = useCallback((): TargetScope => {
+    if (measuringRef.current) return { kind: 'atoms' }
+    const focus = focusedIdRef.current
+    return focus ? { kind: 'within', moleculeId: focus } : { kind: 'molecules' }
+  }, [])
+
+  /**
+   * A pinch or click landing somewhere in the scene. `allowRelease` is false
+   * while two hands are up: that pose is a resize, and a stray pinch during
+   * one must not be read as letting the molecule go.
    */
   const handlePinch = useCallback(
-    (scene: MoleculeScene, ndcX: number, ndcY: number) => {
-      const hit = scene.pick(ndcX, ndcY)
+    (scene: MoleculeScene, ndcX: number, ndcY: number, w: number, h: number, allowRelease = true) => {
+      const target = scene.targetAt(ndcX, ndcY, w, h, scopeNow())
 
       if (measuringRef.current) {
-        if (!hit) return
+        if (!target || target.kind !== 'atom' || !target.atom) return
+        const atom = target.atom
+        const moleculeId = target.moleculeId
+        grabbedRef.current = target
         setMeasurePicks((prev) => {
-          const p = { moleculeId: hit.moleculeId, atom: hit.atom }
+          const p = { moleculeId, atom }
           // Cross-molecule measurement isn't chemically meaningful — starting
           // a pick on a different structure restarts the chain there instead.
-          if (prev.length > 0 && prev[0].moleculeId !== hit.moleculeId) return [p]
+          if (prev.length > 0 && prev[0].moleculeId !== moleculeId) return [p]
           return prev.length >= 3 ? [p] : [...prev, p]
         })
         return
@@ -261,27 +289,51 @@ export default function ARView() {
 
       const focus = focusedIdRef.current
       if (focus) {
-        if (hit && hit.moleculeId === focus) {
-          rotatingRef.current = true
-          setSelected({ moleculeId: hit.moleculeId, atom: hit.atom })
+        if (target && target.moleculeId === focus) {
+          grabbedRef.current = target
+          if (target.kind === 'center') {
+            movingRef.current = true
+            rotatingRef.current = false
+          } else if (target.kind === 'atom' && target.atom) {
+            rotatingRef.current = true
+            movingRef.current = false
+            setSelected({ moleculeId: target.moleculeId, atom: target.atom })
+          }
           return
         }
         // Over the focused molecule but between its atoms: keep it. Only a
         // pinch clear of the whole structure counts as letting go.
-        if (scene.withinBounds(focus, ndcX, ndcY)) return
+        if (scene.withinBounds(focus, ndcX, ndcY, w, h)) return
+        if (!allowRelease) return
         applyFocus(null)
         setSelected(null)
+        grabbedRef.current = null
         return
       }
 
-      const picked = hit?.moleculeId ?? scene.pickMolecule(ndcX, ndcY)
-      if (!picked) return
+      if (!target) return
       rotatingRef.current = false
-      applyFocus(picked)
-      setSelected(hit ? { moleculeId: hit.moleculeId, atom: hit.atom } : null)
+      movingRef.current = false
+      grabbedRef.current = target
+      applyFocus(target.moleculeId)
+      setSelected(target.kind === 'atom' && target.atom ? { moleculeId: target.moleculeId, atom: target.atom } : null)
     },
-    [applyFocus],
+    [applyFocus, scopeNow],
   )
+
+  // Dev-only: the pinch entry point, so the interaction rules can be exercised
+  // from the console on a machine with no camera.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as Record<string, unknown>
+    w.__arPinch = (ndcX: number, ndcY: number, vw: number, vh: number, allowRelease = true) => {
+      const scene = sceneRef.current
+      if (scene) handlePinch(scene, ndcX, ndcY, vw, vh, allowRelease)
+    }
+    return () => {
+      w.__arPinch = null
+    }
+  }, [handlePinch])
 
   // ---- render loop ----------------------------------------------------------
   useEffect(() => {
@@ -313,21 +365,35 @@ export default function ARView() {
         const hands = detectHands(video, t)
         handsRef.current = hands
         const g = interpretGestures(hands, gestureMem.current)
+        handCountRef.current = g.handCount
 
         if (g.pinchStarted) {
           const ndcX = g.pinchStarted.x * 2 - 1
           const ndcY = -(g.pinchStarted.y * 2 - 1)
-          handlePinch(scene, ndcX, ndcY)
+          // Two hands up is a resize pose. Pinching outside during one must
+          // not throw the focus away mid-gesture.
+          handlePinch(scene, ndcX, ndcY, w, h, g.handCount < 2)
         }
-        // Letting go ends the rotation, whatever happens next.
-        if (!g.pinchActive) rotatingRef.current = false
+        // Letting go ends whatever was being held, whatever happens next.
+        if (!g.pinchActive) {
+          rotatingRef.current = false
+          movingRef.current = false
+          grabbedRef.current = null
+        }
 
         // Read after handlePinch: it updates the ref itself rather than
         // waiting for a re-render, so a pinch takes effect on its own frame.
         const focus = focusedIdRef.current
 
-        if (g.mode === 'rotate' && g.pinchActive && focus && rotatingRef.current) {
-          scene.rotateInstance(focus, g.dYaw, g.dPitch)
+        if (g.mode === 'rotate' && g.pinchActive && focus) {
+          if (rotatingRef.current) scene.rotateInstance(focus, g.dYaw, g.dPitch)
+          // The centre handle moves the molecule instead of turning it. Yaw and
+          // pitch are radians-per-frame from the hand, so convert back to the
+          // pixels they came from before handing them to the translator.
+          else if (movingRef.current) {
+            const pxPerRad = h / (Math.PI * 3)
+            scene.translateInstance(focus, g.dYaw * pxPerRad, g.dPitch * pxPerRad, h)
+          }
         }
         if (g.mode === 'scale' && g.scaleFactor !== 1) {
           if (focus) scene.scaleInstance(focus, g.scaleFactor)
@@ -341,19 +407,23 @@ export default function ARView() {
           view.current.distance = clamp(view.current.distance * g.depthFactor, 4, 500)
         }
 
+        aimPxRef.current = g.aim ? { x: g.aim.x * w, y: g.aim.y * h } : null
+
         setHintThrottled(
           focus
             ? g.mode === 'scale'
               ? 'Move hands apart or together to resize'
-              : rotatingRef.current
-                ? 'Move your hand to turn it'
-                : 'Pinch an atom to turn it — pinch away to let it go'
+              : movingRef.current
+                ? 'Move your hand to slide it'
+                : rotatingRef.current
+                  ? 'Move your hand to turn it'
+                  : 'Pinch an atom to turn it, the centre to move it'
             : 'Pinch a molecule to select it',
         )
       }
 
       const focus = focusedIdRef.current
-      if (spinRef.current && !dragRef.current && !rotatingRef.current) {
+      if (spinRef.current && !dragRef.current && !rotatingRef.current && !movingRef.current) {
         if (focus) scene.rotateInstance(focus, 0.01, 0)
         else view.current.yaw += 0.006
       }
@@ -367,14 +437,53 @@ export default function ARView() {
       cam.position.set(0, 0, view.current.distance)
       cam.lookAt(0, 0, 0)
       cam.updateProjectionMatrix()
+
+      // Matrices up to date before targeting, so the highlight reflects this
+      // frame rather than trailing it by one.
+      scene.syncMatrices()
+
+      // Hover: what a pinch would grab if it happened now. Skipped while
+      // something is already held — the grabbed thing is what matters then.
+      const aim = aimPxRef.current
+      if (grabbedRef.current) {
+        hoverRef.current = null
+      } else if (aim) {
+        hoverRef.current = scene.targetAt(
+          (aim.x / w) * 2 - 1,
+          -((aim.y / h) * 2 - 1),
+          w,
+          h,
+          scopeNow(),
+        )
+      } else {
+        hoverRef.current = null
+      }
+
+      const hover = hoverRef.current
+      const grabbed = grabbedRef.current
+      scene.setMoleculeEmphasis(
+        hover?.kind === 'molecule' ? hover.moleculeId : null,
+        grabbed?.kind === 'molecule' ? grabbed.moleculeId : null,
+      )
+
       scene.render()
 
-      drawOverlay(overlay, dpr, w, h, scene, handsRef.current, showSkeleton, measurePicks, selected)
+      drawOverlay(overlay, dpr, w, h, scene, {
+        hands: handsRef.current,
+        showSkeleton: skeletonRef.current,
+        measurePicks: measurePicksRef.current,
+        selected: selectedRef.current,
+        hover,
+        grabbed,
+        focusedId: focus,
+      })
     }
 
     rafRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [open, hasEntries, track, showSkeleton, measurePicks, selected, handlePinch])
+    // measurePicks/selected/showSkeleton are read through refs so the loop is
+    // never torn down and rebuilt mid-interaction.
+  }, [open, hasEntries, track, handlePinch, scopeNow])
 
   // Avoid a setState every frame; the hint only changes on gesture changes.
   const lastHint = useRef('')
@@ -472,17 +581,29 @@ export default function ARView() {
     }
   }
 
+  /** Canvas size in CSS pixels — targeting works in that space. */
+  const viewSize = () => {
+    const canvas = canvasRef.current
+    return canvas ? { w: canvas.clientWidth, h: canvas.clientHeight } : null
+  }
+
   const pointerDown = (e: React.PointerEvent) => {
     dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }
-    // Mirrors the pinch rule: a drag only turns the focused molecule if it
-    // began on one of its atoms.
+    // Mirrors the pinch rule exactly, through the same targeting call: an atom
+    // starts a turn, the centre handle starts a move, anything else neither.
     const scene = sceneRef.current
     const focus = focusedIdRef.current
     const ndc = ndcOf(e)
+    const size = viewSize()
     rotatingRef.current = false
-    if (scene && ndc && focus && !measuringRef.current) {
-      const hit = scene.pick(ndc.x, ndc.y)
-      rotatingRef.current = hit?.moleculeId === focus
+    movingRef.current = false
+    if (scene && ndc && size && focus && !measuringRef.current) {
+      const t = scene.targetAt(ndc.x, ndc.y, size.w, size.h, scopeNow())
+      if (t && t.moleculeId === focus) {
+        grabbedRef.current = t
+        rotatingRef.current = t.kind === 'atom'
+        movingRef.current = t.kind === 'center'
+      }
     }
     try {
       ;(e.target as Element).setPointerCapture?.(e.pointerId)
@@ -491,6 +612,17 @@ export default function ARView() {
     }
   }
   const pointerMove = (e: React.PointerEvent) => {
+    const scene = sceneRef.current
+    const size = viewSize()
+    const ndc = ndcOf(e)
+    // Mouse hover feeds the same aim point the fingers do, so the highlight
+    // behaves identically with or without a camera.
+    if (size && ndc) {
+      const canvas = canvasRef.current!
+      const rect = canvas.getBoundingClientRect()
+      aimPxRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    }
+
     const d = dragRef.current
     if (!d) return
     const dx = e.clientX - d.x
@@ -500,13 +632,13 @@ export default function ARView() {
     // threshold — so releasing it would fire a pick and drop the focus.
     const moved =
       d.moved || Math.abs(e.clientX - d.startX) + Math.abs(e.clientY - d.startY) > 3
-    const scene = sceneRef.current
     const focus = focusedIdRef.current
     if (focus) {
-      // Anything but an atom-started drag leaves it alone: orbiting the scene
+      // Anything but a grab on the molecule leaves it alone: orbiting the scene
       // would slide the focused molecule across the screen, and it is meant to
-      // stay put unless you are turning it.
+      // stay put unless you are turning or moving it.
       if (rotatingRef.current && scene) scene.rotateInstance(focus, dx * 0.01, dy * 0.01)
+      else if (movingRef.current && scene && size) scene.translateInstance(focus, dx, dy, size.h)
     } else {
       view.current.yaw += dx * 0.01
       view.current.pitch = clamp(view.current.pitch + dy * 0.01, -1.6, 1.6)
@@ -517,12 +649,15 @@ export default function ARView() {
     const d = dragRef.current
     dragRef.current = null
     rotatingRef.current = false
+    movingRef.current = false
+    grabbedRef.current = null
     if (!d || d.moved) return
     // A click without drag is a pick, mirroring pinch-to-select.
     const scene = sceneRef.current
     const ndc = ndcOf(e)
-    if (!scene || !ndc) return
-    handlePinch(scene, ndc.x, ndc.y)
+    const size = viewSize()
+    if (!scene || !ndc || !size) return
+    handlePinch(scene, ndc.x, ndc.y, size.w, size.h)
   }
   const onWheel = (e: React.WheelEvent) => {
     const scene = sceneRef.current
@@ -812,17 +947,76 @@ function drawOverlay(
   w: number,
   h: number,
   scene: MoleculeScene,
-  hands: HandsFrame,
-  showSkeleton: boolean,
-  measurePicks: Pick[],
-  selected: Pick | null,
+  s: {
+    hands: HandsFrame
+    showSkeleton: boolean
+    measurePicks: Pick[]
+    selected: Pick | null
+    hover: SceneTarget | null
+    grabbed: SceneTarget | null
+    focusedId: string | null
+  },
 ) {
+  const { hands, showSkeleton, measurePicks, selected, hover, grabbed, focusedId } = s
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
 
   const project = (p: Pick) => scene.projectToScreen(scene.worldPositionOf(p.moleculeId, p.atom), w, h)
+
+  // The centre handle: always visible while focused, so it can be found
+  // without hunting for it.
+  if (focusedId) {
+    const c = scene.centerHandleScreen(focusedId, w, h)
+    if (c && !c.behind) {
+      const held = grabbed?.kind === 'center'
+      const near = hover?.kind === 'center'
+      ctx.strokeStyle = held
+        ? 'rgba(120,215,255,1)'
+        : near
+          ? 'rgba(255,255,255,0.9)'
+          : 'rgba(255,255,255,0.42)'
+      ctx.lineWidth = held ? 2.6 : 1.8
+      ctx.beginPath()
+      ctx.arc(c.x, c.y, held ? 15 : 12, 0, Math.PI * 2)
+      ctx.stroke()
+      // Cross-hair reads as "move", distinguishing it from an atom ring.
+      const arm = held ? 7 : 5.5
+      ctx.beginPath()
+      ctx.moveTo(c.x - arm, c.y)
+      ctx.lineTo(c.x + arm, c.y)
+      ctx.moveTo(c.x, c.y - arm)
+      ctx.lineTo(c.x, c.y + arm)
+      ctx.stroke()
+    }
+  }
+
+  // Hover: thin white ring, drawn before the committed states so it never
+  // covers them.
+  if (hover && hover.kind !== 'center') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = hover.kind === 'molecule' ? 1.6 : 2
+    ctx.setLineDash(hover.kind === 'molecule' ? [6, 5] : [])
+    ctx.beginPath()
+    ctx.arc(hover.sx, hover.sy, Math.max(hover.sr * 1.25, 13), 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  // Grabbed: filled accent ring, unmistakably different from hover.
+  if (grabbed && grabbed.kind !== 'center') {
+    const r = Math.max(grabbed.sr * 1.3, 15)
+    ctx.fillStyle = 'rgba(90,190,255,0.20)'
+    ctx.beginPath()
+    ctx.arc(grabbed.sx, grabbed.sy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(120,215,255,1)'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(grabbed.sx, grabbed.sy, r, 0, Math.PI * 2)
+    ctx.stroke()
+  }
 
   if (selected) {
     const p = project(selected)
