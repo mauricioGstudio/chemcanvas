@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChemCanvas — a structure editor for Windows</title>
-<meta name="description" content="ChemCanvas is a chemical structure editor for Windows. Type a name, get an editable molecule. Real geometry, live properties, eight export formats.">
+<title>ChemCanvas — a chemical structure editor in your browser</title>
+<meta name="description" content="ChemCanvas is a free chemical structure editor that runs in the browser. Type a name, get an editable molecule. Real geometry, live properties, eight export formats, and an AR viewer.">
 <link rel="icon" type="image/png" href="./assets/icon.png">
 <script>document.documentElement.classList.add('js')</script>
 <style>
@@ -161,54 +161,76 @@
   .fineprint { max-width: 540px; margin: 32px auto 0; font-size: 14px; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 22px; line-height: 1.65; }
   .fineprint.alt { margin-top: 12px; border-top: 0; padding-top: 0; }
 
-  /* changelog — three tiers of disclosure: major > minor > release */
+  /* changelog — one timeline; dot size encodes major / minor / release */
   .changelog-intro { color: var(--ink-soft); margin-top: 22px; max-width: 560px; }
-  .versions { margin-top: 44px; display: flex; flex-direction: column; gap: 20px; }
 
-  /* shared summary-row behaviour for all three tiers */
-  .major-head, .minor-head, .version-head {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    cursor: pointer; user-select: none; list-style: none;
+  .timeline { position: relative; margin-top: 46px; list-style: none; }
+  /* the rail, inset by half a row top and bottom so it starts and ends on a dot */
+  .timeline::before {
+    content: ''; position: absolute; left: 13px; top: 29px; bottom: 29px;
+    width: 2px; background: var(--line); border-radius: 2px;
   }
-  .major-head::-webkit-details-marker,
-  .minor-head::-webkit-details-marker,
-  .version-head::-webkit-details-marker { display: none; }
-  .major-head:focus-visible, .minor-head:focus-visible, .version-head:focus-visible {
-    outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px;
+  .tl-node { position: relative; padding-left: 46px; }
+
+  /* Every node's header row is exactly this tall. A fixed height rather than a
+     minimum, and no wrapping — otherwise row height follows the text and the
+     dots stop being evenly spaced the moment a label is long or the window
+     narrows. Labels ellipsis instead of pushing the row taller. */
+  .tl-head {
+    display: flex; align-items: center; gap: 12px; flex-wrap: nowrap;
+    height: 58px; list-style: none;
   }
-  .tier-meta { font-size: 13.5px; color: var(--ink-faint); }
+  .tl-head::-webkit-details-marker { display: none; }
+  .tl-head .tl-tag { white-space: nowrap; flex-shrink: 0; }
+  .tl-head .tl-meta, .tl-head .tl-date {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  /* the shared .badge carries a bottom margin for the download panel; it would
+     knock the row off centre here */
+  .tl-head .badge { margin-bottom: 0; flex-shrink: 0; }
+
+  .tl-dot {
+    position: absolute; left: 14px; top: 29px; transform: translate(-50%, -50%);
+    border-radius: 50%; z-index: 1;
+    /* the halo punches the dot through the rail behind it */
+    box-shadow: 0 0 0 5px var(--paper);
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .tier-major .tl-dot { width: 19px; height: 19px; background: var(--ink); }
+  .tier-minor .tl-dot { width: 12px; height: 12px; background: var(--ink-faint); }
+  .tier-patch .tl-dot { width: 8px; height: 8px; background: var(--paper); box-shadow: 0 0 0 5px var(--paper), inset 0 0 0 2px var(--ink-faint); }
+  .tl-dot[data-latest] { background: var(--accent); box-shadow: 0 0 0 5px var(--paper), 0 0 0 8px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  .tl-tag { letter-spacing: -0.015em; }
+  .tier-major .tl-tag { font-weight: 800; font-size: 27px; }
+  .tier-minor .tl-tag { font-weight: 700; font-size: 18px; color: var(--ink-soft); }
+  .tier-patch .tl-tag { font-weight: 700; font-size: 16px; }
+  .tl-meta, .tl-date { font-size: 13.5px; color: var(--ink-faint); }
+
+  /* only releases open; major and minor nodes are markers */
+  .tl-release { width: 100%; }
+  .tl-release > summary { cursor: pointer; user-select: none; }
+  .tl-release > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  .tl-node:hover .tl-dot { transform: translate(-50%, -50%) scale(1.15); }
   .chev {
-    margin-left: auto; width: 20px; height: 20px; flex-shrink: 0; color: var(--ink-faint);
+    margin-left: auto; width: 19px; height: 19px; flex-shrink: 0; color: var(--ink-faint);
     transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  /* `> summary` keeps a parent's open state off its children's chevrons */
+  /* keeps the chevron hard right even when the label ellipsises */
+  .tl-head .tl-date { margin-right: auto; }
   details[open] > summary .chev { transform: rotate(180deg); }
-  .major-head:hover .chev, .minor-head:hover .chev, .version-head:hover .chev { color: var(--ink); }
+  .tl-release > summary:hover .chev { color: var(--ink); }
 
-  /* tier 1 — major line (v2) */
-  .major { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 26px 30px; }
-  .major:not([open]) { padding-bottom: 24px; }
-  .major-tag { font-weight: 800; font-size: 25px; letter-spacing: -0.02em; }
-
-  /* tier 2 — minor line (v2.3) */
-  .minors { margin-top: 20px; display: flex; flex-direction: column; }
-  .minor { border-top: 1px solid var(--line-soft); padding: 15px 0; }
-  .minor:first-child { border-top: 0; padding-top: 4px; }
-  .minor:last-child { padding-bottom: 0; }
-  .minor-tag { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
-
-  /* tier 3 — the release itself (v2.3.0) */
-  .patches { margin: 14px 0 4px; padding-left: 18px; border-left: 2px solid var(--line-soft); display: flex; flex-direction: column; gap: 12px; }
-  .version { border: 1px solid var(--line); border-radius: 11px; background: var(--paper); padding: 18px 22px; }
-  .version:not([open]) { padding-bottom: 16px; }
-  .version-tag { font-weight: 700; font-size: 16.5px; letter-spacing: -0.01em; }
-  .version-date { font-size: 13.5px; color: var(--ink-faint); }
-  .version-note { color: var(--ink-soft); margin-top: 10px; font-size: 15px; }
+  .tl-content {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+    padding: 22px 24px; margin: 2px 0 22px;
+  }
+  .version-note { color: var(--ink-soft); font-size: 15px; }
   .version-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 22px 28px; margin-top: 22px; }
   .version-groups h4 { font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em; margin-bottom: 8px; }
   .version-groups ul { list-style: none; }
   .version-groups li { font-size: 14px; color: var(--ink-soft); padding: 3px 0; }
-  .version-links { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 20px; }
+  .version-links { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 20px; }
 
   /* developer */
   .dev { max-width: 640px; }
@@ -257,9 +279,9 @@
     .split.rev > .txt { order: 0; }
     .index-head { position: static; }
     .row { grid-template-columns: 1fr; gap: 8px; }
-    .major { padding: 22px 20px; }
-    .patches { padding-left: 12px; }
-    .version { padding: 16px 17px; }
+    .tl-node { padding-left: 38px; }
+    .tl-content { padding: 18px 17px; }
+    .tier-major .tl-tag { font-size: 23px; }
   }
 </style>
 </head>
@@ -272,12 +294,12 @@
     <a href="#features">Features</a>
     <a href="#ar">AR</a>
     <a href="#more">In the box</a>
-    <a href="#download">Download</a>
+    <a href="#download">Open</a>
     <a href="#changelog">Changelog</a>
     <a href="#developer">Developer</a>
     <a href="#privacy">Privacy</a>
   </div>
-  <a class="btn small" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download</a>
+  <a class="btn small accent" href="https://chemcanvas.vercel.app" target="_blank" rel="noopener">Open canvas</a>
 </nav>
 
 <div class="mol-bg" id="molBg">
@@ -433,8 +455,8 @@
   </h1>
   <p class="hero-sub">ChemCanvas turns "caffeine" into an editable structure the moment you press Enter. Bonds snap to real geometry, formulas update while you draw, and <a href="#ar" style="color: var(--accent); border-bottom: 1px solid var(--accent)">the whole canvas can be lifted off the page into 3D</a> and held in your hands.</p>
   <div class="hero-cta">
-    <a class="btn" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download for Windows</a>
-    <span class="cta-note">98 MB &middot; no account &middot; Windows 10 and 11</span>
+    <a class="btn accent" href="https://chemcanvas.vercel.app" target="_blank" rel="noopener">Open canvas</a>
+    <span class="cta-note">Runs in your browser &middot; nothing to install &middot; no account</span>
   </div>
   <div class="scroll-hint"><span>Scroll</span><i></i></div>
 </header>
@@ -550,13 +572,13 @@
 
 <section id="download">
   <div class="dl reveal">
-    <p class="label">Download</p>
-    <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 2.3.1</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
-    <span class="badge">Recommended</span>
-    <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
-    <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
-    <p class="fineprint alt"><a href="https://chemcanvas.vercel.app" target="_blank" rel="noopener" style="color: var(--accent); border-bottom: 1px solid var(--accent)">Web-based version</a></p>
+    <p class="label">Open</p>
+    <h2>Start drawing right now</h2>
+    <div class="meta"><span>Version 2.3.1</span><span>Any modern browser</span><span>Mac, Windows, Linux</span><span>Free</span></div>
+    <span class="badge">No install</span>
+    <a class="btn big accent" href="https://chemcanvas.vercel.app" target="_blank" rel="noopener">Open canvas</a>
+    <p class="fineprint">The full editor — drawing, reactions, stereochemistry, templates, every export format, and the AR viewer — runs in the browser tab. Nothing is installed and there is no account. Your drawings are saved on your own machine and never uploaded; the details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which using ChemCanvas means you agree to.</p>
+    <p class="fineprint alt">Prefer a desktop app? There's a <a href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download style="color: var(--accent); border-bottom: 1px solid var(--accent)">Windows build</a> — same editor, 109 MB, shows a SmartScreen notice on first launch because it isn't code-signed.</p>
   </div>
 </section>
 
@@ -565,33 +587,33 @@
   <h2>Version history</h2>
   <p class="changelog-intro reveal">Every release gets its own entry here, with its own download link that keeps working after newer versions ship — so you can always go back to an older one.</p>
 
-    <div class="versions">
-      <details class="major reveal" open>
-        <summary class="major-head">
-          <span class="major-tag">v2</span>
-          <span class="tier-meta">6 releases · newest v2.3.1</span>
-          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </summary>
-
-        <div class="minors">
-          <details class="minor" open>
-            <summary class="minor-head">
-              <span class="minor-tag">v2.3</span>
-              <span class="tier-meta">2 releases</span>
-              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </summary>
-            <div class="patches">
-
-              <details class="version" open>
-                <summary class="version-head">
-                  <span class="version-tag">v2.3.1</span>
-                  <span class="version-date">August 1, 2026</span>
-                  <span class="badge">Latest</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">Selection fixes — the AR viewer now shows what you're about to grab.</p>
-
-                <div class="version-groups">
+    <ol class="timeline">
+      <li class="tl-node tier-major">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v2</span>
+          <span class="tl-meta">6 releases · newest v2.3.1</span>
+        </div>
+      </li>
+      <li class="tl-node tier-minor">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v2.3</span>
+          <span class="tl-meta">2 releases</span>
+        </div>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot" data-latest="1"></span>
+        <details class="tl-release" open>
+          <summary class="tl-head">
+            <span class="tl-tag">v2.3.1</span>
+            <span class="tl-date">August 1, 2026</span>
+            <span class="badge">Latest</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">Selection fixes — the AR viewer now shows what you're about to grab.</p>
+            <div class="version-groups">
                   <div>
                     <h4>Fixes</h4>
                     <ul>
@@ -630,24 +652,25 @@
                       <li>Aiming costs 0.0152 ms a frame across a 57-atom scene</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.1/ChemCanvas-Setup.exe" download>Download v2.3.1</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.1" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-
-              <details class="version">
-                <summary class="version-head">
-                  <span class="version-tag">v2.3.0</span>
-                  <span class="version-date">August 1, 2026</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">One molecule at a time, held still while you work on it.</p>
-
-                <div class="version-groups">
+          </div>
+        </details>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot"></span>
+        <details class="tl-release">
+          <summary class="tl-head">
+            <span class="tl-tag">v2.3.0</span>
+            <span class="tl-date">August 1, 2026</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">One molecule at a time, held still while you work on it.</p>
+            <div class="version-groups">
                   <div>
                     <h4>Pinch to expand</h4>
                     <ul>
@@ -673,34 +696,32 @@
                       <li>Escape and Reset clear the dimming immediately rather than on the next frame</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.0/ChemCanvas-Setup.exe" download>Download v2.3.0</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-            </div>
-          </details>
-
-          <details class="minor">
-            <summary class="minor-head">
-              <span class="minor-tag">v2.2</span>
-              <span class="tier-meta">2 releases</span>
-              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </summary>
-            <div class="patches">
-
-              <details class="version">
-                <summary class="version-head">
-                  <span class="version-tag">v2.2.1</span>
-                  <span class="version-date">August 1, 2026</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">Publisher identification, so Windows shows whose app this is.</p>
-
-                <div class="version-groups">
+          </div>
+        </details>
+      </li>
+      <li class="tl-node tier-minor">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v2.2</span>
+          <span class="tl-meta">2 releases</span>
+        </div>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot"></span>
+        <details class="tl-release">
+          <summary class="tl-head">
+            <span class="tl-tag">v2.2.1</span>
+            <span class="tl-date">August 1, 2026</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">Publisher identification, so Windows shows whose app this is.</p>
+            <div class="version-groups">
                   <div>
                     <h4>Publisher</h4>
                     <ul>
@@ -708,23 +729,25 @@
                       <li>Not code-signed yet, so the SmartScreen notice on first launch is unchanged — that needs a paid certificate, which is a separate step</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.1/ChemCanvas-Setup.exe" download>Download v2.2.1</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.1" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-              <details class="version">
-                <summary class="version-head">
-                  <span class="version-tag">v2.2.0</span>
-                  <span class="version-date">August 1, 2026</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">The whole canvas goes to AR at once, and you choose what to handle.</p>
-
-                <div class="version-groups">
+          </div>
+        </details>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot"></span>
+        <details class="tl-release">
+          <summary class="tl-head">
+            <span class="tl-tag">v2.2.0</span>
+            <span class="tl-date">August 1, 2026</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">The whole canvas goes to AR at once, and you choose what to handle.</p>
+            <div class="version-groups">
                   <div>
                     <h4>Whole-canvas AR</h4>
                     <ul>
@@ -756,34 +779,32 @@
                       <li>Measurements stay within one structure, restarting if you pick another</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.2.0/ChemCanvas-Setup.exe" download>Download v2.2.0</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.2.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-            </div>
-          </details>
-
-          <details class="minor">
-            <summary class="minor-head">
-              <span class="minor-tag">v2.1</span>
-              <span class="tier-meta">1 release</span>
-              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </summary>
-            <div class="patches">
-
-              <details class="version">
-                <summary class="version-head">
-                  <span class="version-tag">v2.1.0</span>
-                  <span class="version-date">August 1, 2026</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
-
-                <div class="version-groups">
+          </div>
+        </details>
+      </li>
+      <li class="tl-node tier-minor">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v2.1</span>
+          <span class="tl-meta">1 release</span>
+        </div>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot"></span>
+        <details class="tl-release">
+          <summary class="tl-head">
+            <span class="tl-tag">v2.1.0</span>
+            <span class="tl-date">August 1, 2026</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">Real 3D. The AR viewer became a place to work, not just look.</p>
+            <div class="version-groups">
                   <div>
                     <h4>Genuine 3D rendering</h4>
                     <ul>
@@ -819,34 +840,32 @@
                       <li>Carbon labels dropped in favour of heteroatoms only, as skeletal structures are drawn</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.1.0/ChemCanvas-Setup.exe" download>Download v2.1.0</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.1.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-            </div>
-          </details>
-
-          <details class="minor">
-            <summary class="minor-head">
-              <span class="minor-tag">v2.0</span>
-              <span class="tier-meta">1 release</span>
-              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </summary>
-            <div class="patches">
-
-              <details class="version">
-                <summary class="version-head">
-                  <span class="version-tag">v2.0.0</span>
-                  <span class="version-date">August 1, 2026</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
-
-                <div class="version-groups">
+          </div>
+        </details>
+      </li>
+      <li class="tl-node tier-minor">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v2.0</span>
+          <span class="tl-meta">1 release</span>
+        </div>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot"></span>
+        <details class="tl-release">
+          <summary class="tl-head">
+            <span class="tl-tag">v2.0.0</span>
+            <span class="tl-date">August 1, 2026</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">The AR release — molecules leave the page and stand up in the room.</p>
+            <div class="version-groups">
                   <div>
                     <h4>AR viewer</h4>
                     <ul>
@@ -880,44 +899,39 @@
                       <li>Works without a camera — drag to rotate instead</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.0.0/ChemCanvas-Setup.exe" download>Download v2.0.0</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-            </div>
-          </details>
+          </div>
+        </details>
+      </li>
+      <li class="tl-node tier-major">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v1</span>
+          <span class="tl-meta">1 release · newest v1.0.0</span>
         </div>
-      </details>
-
-      <details class="major reveal">
-        <summary class="major-head">
-          <span class="major-tag">v1</span>
-          <span class="tier-meta">1 release · newest v1.0.0</span>
-          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </summary>
-
-        <div class="minors">
-          <details class="minor">
-            <summary class="minor-head">
-              <span class="minor-tag">v1.0</span>
-              <span class="tier-meta">1 release</span>
-              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </summary>
-            <div class="patches">
-
-              <details class="version">
-                <summary class="version-head">
-                  <span class="version-tag">v1.0.0</span>
-                  <span class="version-date">July 28, 2026</span>
-                  <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </summary>
-                <p class="version-note">Initial release.</p>
-
-                <div class="version-groups">
+      </li>
+      <li class="tl-node tier-minor">
+        <span class="tl-dot"></span>
+        <div class="tl-head">
+          <span class="tl-tag">v1.0</span>
+          <span class="tl-meta">1 release</span>
+        </div>
+      </li>
+      <li class="tl-node tier-patch">
+        <span class="tl-dot"></span>
+        <details class="tl-release">
+          <summary class="tl-head">
+            <span class="tl-tag">v1.0.0</span>
+            <span class="tl-date">July 28, 2026</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="tl-content">
+            <p class="version-note">Initial release.</p>
+            <div class="version-groups">
                   <div>
                     <h4>Search</h4>
                     <ul>
@@ -973,19 +987,15 @@
                       <li>No accounts, no telemetry, works offline — network only for lookups you trigger</li>
                     </ul>
                   </div>
-                </div>
-
-                <div class="version-links">
+            </div>
+            <div class="version-links">
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v1.0.0/ChemCanvas-Setup.exe" download>Download v1.0.0</a>
                   <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v1.0.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
-              </details>
-
-            </div>
-          </details>
-        </div>
-      </details>
-    </div>
+          </div>
+        </details>
+      </li>
+    </ol>
 </section>
 
 <section id="developer">
@@ -1042,6 +1052,7 @@
       <li>Everything runs and saves locally on your computer.</li>
       <li>No telemetry, no account, no cookies.</li>
       <li>Name lookups you trigger send only the typed text to PubChem or OPSIN; skip the search bar and it never touches the network.</li>
+      <li>Precise 3D, if you turn it on in AR, sends your structures to NCI CACTUS for exact coordinates. Off by choice at any time.</li>
     </ul>
     <p>The full text is in the <a class="policy-link" href="#privacy" id="policyLink">privacy policy</a>. Downloading means you agree to it.</p>
     <div class="modal-btns">
