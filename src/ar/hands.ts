@@ -147,6 +147,18 @@ export interface GestureState {
   pinchStarted: { x: number; y: number } | null
   /** True for every frame a single-hand pinch is held (after the start). */
   pinchActive: boolean
+  /**
+   * Thumb/index midpoint of the nearest-to-pinching hand, whether or not it
+   * is actually pinching. This is where the fingers are *aiming*, which is
+   * what the highlight follows so you can see what a pinch would grab before
+   * committing to it.
+   */
+  aim: { x: number; y: number } | null
+  /**
+   * Hands visible this frame. Two-handed poses are resize gestures, and a
+   * stray pinch during one must not be read as "let the molecule go".
+   */
+  handCount: number
   /** Accumulated rotation deltas this frame, radians. */
   dYaw: number
   dPitch: number
@@ -189,11 +201,25 @@ export function interpretGestures(hands: HandsFrame, mem: GestureMemory): Gestur
   const out: GestureState = {
     pinchStarted: null,
     pinchActive: false,
+    aim: null,
+    handCount: hands.length,
     dYaw: 0,
     dPitch: 0,
     scaleFactor: 1,
     depthFactor: 1,
     mode: 'idle',
+  }
+
+  // Aim point, reported every frame regardless of pinch state. With two hands
+  // up, the one closest to pinching is the one being aimed — the other is
+  // usually just bracing the resize.
+  if (hands.length > 0) {
+    let best = hands[0]
+    for (const h of hands) if (h.pinchStrength < best.pinchStrength) best = h
+    out.aim = {
+      x: (best.points[THUMB_TIP].x + best.points[INDEX_TIP].x) / 2,
+      y: (best.points[THUMB_TIP].y + best.points[INDEX_TIP].y) / 2,
+    }
   }
 
   // Depth from hand span: a hand held closer to the camera covers more of
