@@ -509,7 +509,7 @@
 <section id="ar">
   <div class="split">
     <div class="txt reveal">
-      <p class="label">New in 2.4</p>
+      <p class="label">New in 2.3</p>
       <h2>Put the whole canvas in the room</h2>
       <p>Press <b>AR</b> and everything you've drawn comes with you — not one structure at a time. ChemCanvas works out each shape, opens your camera, and stands them all up in a row in front of you, spheres for atoms, real depth, real geometry. A progress bar counts the structures as they're built, so you're never staring at an empty screen wondering.</p>
       <p>You can see what you're about to grab before you grab it. Whatever your finger and thumb are nearest lights up — a molecule, or a single atom once you're inside one — and the ring changes the moment you actually close the pinch. No guessing, no grabbing the wrong thing.</p>
@@ -552,7 +552,7 @@
   <div class="dl reveal">
     <p class="label">Download</p>
     <h2>Get ChemCanvas for Windows</h2>
-    <div class="meta"><span>Version 2.4.0</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
+    <div class="meta"><span>Version 2.3.1</span><span>Windows 10 and 11, 64-bit</span><span>109 MB</span><span>Free</span></div>
     <span class="badge">Recommended</span>
     <a class="btn big accent" href="https://github.com/mauricioGstudio/chemcanvas/releases/latest/download/ChemCanvas-Setup.exe" download>Download ChemCanvas-Setup.exe</a>
     <p class="fineprint">Windows may show a SmartScreen notice on first launch, since the installer is not code-signed. Choose "More info", then "Run anyway". It installs for the current user and needs no admin rights. No telemetry, no account, and drawings never leave your computer — the full details are in the <a href="#privacy" style="color: var(--accent); border-bottom: 1px solid var(--accent)">privacy policy</a>, which downloading means you agree to.</p>
@@ -569,29 +569,42 @@
       <details class="major reveal" open>
         <summary class="major-head">
           <span class="major-tag">v2</span>
-          <span class="tier-meta">6 releases · newest v2.4.0</span>
+          <span class="tier-meta">6 releases · newest v2.3.1</span>
           <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </summary>
 
         <div class="minors">
           <details class="minor" open>
             <summary class="minor-head">
-              <span class="minor-tag">v2.4</span>
-              <span class="tier-meta">1 release</span>
+              <span class="minor-tag">v2.3</span>
+              <span class="tier-meta">2 releases</span>
               <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </summary>
             <div class="patches">
 
               <details class="version" open>
                 <summary class="version-head">
-                  <span class="version-tag">v2.4.0</span>
+                  <span class="version-tag">v2.3.1</span>
                   <span class="version-date">August 1, 2026</span>
                   <span class="badge">Latest</span>
                   <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </summary>
-                <p class="version-note">See what you're about to grab, and a handle for moving things.</p>
+                <p class="version-note">Selection fixes — the AR viewer now shows what you're about to grab.</p>
 
                 <div class="version-groups">
+                  <div>
+                    <h4>Fixes</h4>
+                    <ul>
+                      <li>Pinching often selected nothing at all — a pick used to need a direct hit on the geometry, which is near impossible when the aim point sits between two moving fingertips. Aiming near something now picks it</li>
+                      <li>Atoms on the far side of a ring could steal the pick from the ones in front. Near-equal aims now resolve toward whatever is closest to the camera</li>
+                      <li>A second hand entering frame could drop you out of a focused molecule mid-resize. Two hands up no longer releases focus</li>
+                      <li>The highlight and the pinch could disagree about the target. Both now ask one rule what's grabbable, so they can't diverge</li>
+                      <li>Picking an atom tore down and rebuilt the render loop mid-interaction, costing a visible hitch</li>
+                      <li>The renderer was resized on every single frame, even when nothing had changed</li>
+                      <li>The highlight trailed the hand by one frame</li>
+                      <li>Website: the v2.0.0 changelog entry had drifted into describing current behaviour instead of what that version actually shipped with. Restored</li>
+                    </ul>
+                  </div>
                   <div>
                     <h4>Highlight before you grab</h4>
                     <ul>
@@ -611,40 +624,20 @@
                     </ul>
                   </div>
                   <div>
-                    <h4>Steadier selection</h4>
-                    <ul>
-                      <li>Two hands on screen can no longer drop the focus by accident mid-resize</li>
-                      <li>Aiming near something now picks it — exact hits are no longer required</li>
-                      <li>Ties break toward whatever is closest to the camera, so atoms behind a ring stop stealing the pick</li>
-                      <li>One rule decides what's grabbable, so the highlight and the pinch can never disagree</li>
-                    </ul>
-                  </div>
-                  <div>
                     <h4>Under the hood</h4>
                     <ul>
                       <li>Targeting allocates nothing per frame — measured at 0 KB over 400 passes</li>
-                      <li>Resizing the renderer is skipped entirely when the size hasn't changed</li>
-                      <li>The render loop is no longer torn down and rebuilt during an interaction</li>
+                      <li>Aiming costs 0.0152 ms a frame across a 57-atom scene</li>
                     </ul>
                   </div>
                 </div>
 
                 <div class="version-links">
-                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.4.0/ChemCanvas-Setup.exe" download>Download v2.4.0</a>
-                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.4.0" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/download/v2.3.1/ChemCanvas-Setup.exe" download>Download v2.3.1</a>
+                  <a class="btn ghost small" href="https://github.com/mauricioGstudio/chemcanvas/releases/tag/v2.3.1" target="_blank" rel="noopener">Release notes on GitHub &nearr;</a>
                 </div>
               </details>
 
-            </div>
-          </details>
-
-          <details class="minor">
-            <summary class="minor-head">
-              <span class="minor-tag">v2.3</span>
-              <span class="tier-meta">1 release</span>
-              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </summary>
-            <div class="patches">
 
               <details class="version">
                 <summary class="version-head">
