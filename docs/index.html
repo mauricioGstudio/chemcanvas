@@ -196,10 +196,18 @@
     box-shadow: 0 0 0 5px var(--paper);
     transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  /* Size reads the release's own version number, so the major/minor grouping
+     survives without needing separate marker rows to carry it. */
   .tier-major .tl-dot { width: 19px; height: 19px; background: var(--ink); }
   .tier-minor .tl-dot { width: 12px; height: 12px; background: var(--ink-faint); }
   .tier-patch .tl-dot { width: 8px; height: 8px; background: var(--paper); box-shadow: 0 0 0 5px var(--paper), inset 0 0 0 2px var(--ink-faint); }
-  .tl-dot[data-latest] { background: var(--accent); box-shadow: 0 0 0 5px var(--paper), 0 0 0 8px color-mix(in srgb, var(--accent) 22%, transparent); }
+  /* The newest release outranks its tier — a patch can still be the headline.
+     Listed last and given an extra class' worth of specificity so it wins
+     whichever tier it lands in. */
+  .tl-node .tl-dot[data-latest] {
+    width: 26px; height: 26px; background: var(--accent);
+    box-shadow: 0 0 0 5px var(--paper), 0 0 0 9px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
 
   .tl-tag { letter-spacing: -0.015em; }
   .tier-major .tl-tag { font-weight: 800; font-size: 27px; }
@@ -588,20 +596,6 @@
   <p class="changelog-intro reveal">Every release gets its own entry here, with its own download link that keeps working after newer versions ship — so you can always go back to an older one.</p>
 
     <ol class="timeline">
-      <li class="tl-node tier-major">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v2</span>
-          <span class="tl-meta">6 releases · newest v2.3.1</span>
-        </div>
-      </li>
-      <li class="tl-node tier-minor">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v2.3</span>
-          <span class="tl-meta">2 releases</span>
-        </div>
-      </li>
       <li class="tl-node tier-patch">
         <span class="tl-dot" data-latest="1"></span>
         <details class="tl-release" open>
@@ -660,7 +654,7 @@
           </div>
         </details>
       </li>
-      <li class="tl-node tier-patch">
+      <li class="tl-node tier-minor">
         <span class="tl-dot"></span>
         <details class="tl-release">
           <summary class="tl-head">
@@ -704,13 +698,6 @@
           </div>
         </details>
       </li>
-      <li class="tl-node tier-minor">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v2.2</span>
-          <span class="tl-meta">2 releases</span>
-        </div>
-      </li>
       <li class="tl-node tier-patch">
         <span class="tl-dot"></span>
         <details class="tl-release">
@@ -737,7 +724,7 @@
           </div>
         </details>
       </li>
-      <li class="tl-node tier-patch">
+      <li class="tl-node tier-minor">
         <span class="tl-dot"></span>
         <details class="tl-release">
           <summary class="tl-head">
@@ -788,13 +775,6 @@
         </details>
       </li>
       <li class="tl-node tier-minor">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v2.1</span>
-          <span class="tl-meta">1 release</span>
-        </div>
-      </li>
-      <li class="tl-node tier-patch">
         <span class="tl-dot"></span>
         <details class="tl-release">
           <summary class="tl-head">
@@ -848,14 +828,7 @@
           </div>
         </details>
       </li>
-      <li class="tl-node tier-minor">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v2.0</span>
-          <span class="tl-meta">1 release</span>
-        </div>
-      </li>
-      <li class="tl-node tier-patch">
+      <li class="tl-node tier-major">
         <span class="tl-dot"></span>
         <details class="tl-release">
           <summary class="tl-head">
@@ -908,20 +881,6 @@
         </details>
       </li>
       <li class="tl-node tier-major">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v1</span>
-          <span class="tl-meta">1 release · newest v1.0.0</span>
-        </div>
-      </li>
-      <li class="tl-node tier-minor">
-        <span class="tl-dot"></span>
-        <div class="tl-head">
-          <span class="tl-tag">v1.0</span>
-          <span class="tl-meta">1 release</span>
-        </div>
-      </li>
-      <li class="tl-node tier-patch">
         <span class="tl-dot"></span>
         <details class="tl-release">
           <summary class="tl-head">
